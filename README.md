@@ -94,13 +94,18 @@ Claude reads tomorrow's calendar first to avoid conflicts, then sets due times i
 Access and manage Apple Reminders from Claude Code.
 
 ```
-reminders-bridge lists                              List all reminder lists
-reminders-bridge create-list <name>                 Create a new list
-reminders-bridge items <list>                       Show all reminders in a list
-reminders-bridge incomplete <list>                  Show only incomplete reminders
-reminders-bridge add <list> <title> [notes]         Add a new reminder
-reminders-bridge set-due <list> <title> <datetime>  Set due date (YYYY-MM-DD HH:mm)
-reminders-bridge complete <list> <title>            Mark a reminder as complete
+reminders-bridge lists                                   List all reminder lists
+reminders-bridge create-list <name>                      Create a new list
+reminders-bridge items <list>                            Show all reminders in a list
+reminders-bridge incomplete <list>                       Show only incomplete reminders
+reminders-bridge today                                   Show reminders due today (all lists)
+reminders-bridge overdue                                 Show all overdue reminders (all lists)
+reminders-bridge search <query>                          Search by title/notes across all lists
+reminders-bridge add <list> <title> [notes]              Add a new reminder
+reminders-bridge set-due <list> <title> <datetime>       Set due date (YYYY-MM-DD HH:mm)
+reminders-bridge set-notes <list> <title> <notes>        Set or update notes
+reminders-bridge complete <list> <title>                 Mark a reminder as complete
+reminders-bridge delete <list> <title> [--force]         Delete a reminder (dry-run without --force)
 ```
 
 ### calendar-bridge
@@ -110,9 +115,13 @@ Read and write Apple Calendar events from Claude Code.
 calendar-bridge calendars                                     List all calendars
 calendar-bridge today                                         Show today's events
 calendar-bridge tomorrow                                      Show tomorrow's events
+calendar-bridge week                                          Show this week's events
 calendar-bridge events <YYYY-MM-DD>                           Show events for a date
+calendar-bridge free-slots <YYYY-MM-DD>                       Show free time slots (08:00–20:00)
+calendar-bridge search <query>                                Search events by title (next 365 days)
 calendar-bridge add <cal> <title> <start> <end>               Add event (YYYY-MM-DD HH:mm)
 calendar-bridge add-all-day <cal> <title> <YYYY-MM-DD>        Add all-day event
+calendar-bridge delete <cal> <title> <YYYY-MM-DD> [--force]   Delete event (dry-run without --force)
 ```
 
 ### contacts-bridge
@@ -121,7 +130,12 @@ Search and manage Apple Contacts from Claude Code.
 ```
 contacts-bridge search <query>                                Search by name, email or phone
 contacts-bridge show <name>                                   Show full details for a contact
-contacts-bridge add <firstName> <lastName> [phone] [email]   Add a new contact
+contacts-bridge add <firstName> <lastName> [phone] [email]    Add a new contact
+contacts-bridge update <name> phone <value>                   Update phone number
+contacts-bridge update <name> email <value>                   Update email address
+contacts-bridge delete <name> [--force]                       Delete a contact (dry-run without --force)
+contacts-bridge birthdays-today                               Contacts with birthday today
+contacts-bridge birthdays-upcoming <days>                     Upcoming birthdays in next N days
 ```
 
 ---

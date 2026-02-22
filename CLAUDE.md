@@ -47,8 +47,12 @@ codesign --force --sign - --identifier com.claude.calendar-bridge ~/.claude/cale
 
 ```bash
 ~/.claude/reminders-bridge lists
+~/.claude/reminders-bridge today
+~/.claude/reminders-bridge overdue
 ~/.claude/calendar-bridge today
+~/.claude/calendar-bridge free-slots $(date +%Y-%m-%d)
 ~/.claude/contacts-bridge search "test"
+~/.claude/contacts-bridge birthdays-upcoming 30
 ```
 
 ## Branching
