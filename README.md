@@ -95,6 +95,15 @@ calendar-bridge add <cal> <title> <start> <end>               Add event (YYYY-MM
 calendar-bridge add-all-day <cal> <title> <YYYY-MM-DD>        Add all-day event
 ```
 
+### contacts-bridge
+Search and manage Apple Contacts from Claude Code.
+
+```
+contacts-bridge search <query>                                Search by name, email or phone
+contacts-bridge show <name>                                   Show full details for a contact
+contacts-bridge add <firstName> <lastName> [phone] [email]   Add a new contact
+```
+
 ## Setup
 
 ### 1. Compile
@@ -115,6 +124,22 @@ swiftc reminders-bridge.swift -o ~/.claude/reminders-bridge \
   -framework EventKit \
   -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker /tmp/reminders-info.plist
 codesign --force --sign - --identifier com.claude.reminders-bridge ~/.claude/reminders-bridge
+
+# contacts-bridge
+cat > /tmp/contacts-info.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSContactsUsageDescription</key>
+    <string>Claude Code needs access to Contacts to look up and manage contacts.</string>
+</dict>
+</plist>
+EOF
+swiftc contacts-bridge.swift -o ~/.claude/contacts-bridge \
+  -framework Contacts \
+  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker /tmp/contacts-info.plist
+codesign --force --sign - --identifier com.claude.contacts-bridge ~/.claude/contacts-bridge
 
 # calendar-bridge
 cat > /tmp/calendar-info.plist << 'EOF'
@@ -140,9 +165,10 @@ Run each binary once from Terminal to trigger the macOS permission dialog:
 ```bash
 ~/.claude/reminders-bridge lists
 ~/.claude/calendar-bridge today
+~/.claude/contacts-bridge search "test"
 ```
 
-Then approve in **System Settings → Privacy & Security → Reminders / Calendars**.
+Then approve in **System Settings → Privacy & Security → Reminders / Calendars / Contacts**.
 
 ### 3. Add to Claude Code allowed tools
 
@@ -153,7 +179,8 @@ In your project's `.claude/settings.local.json`:
   "permissions": {
     "allow": [
       "Bash(~/.claude/reminders-bridge:*)",
-      "Bash(~/.claude/calendar-bridge:*)"
+      "Bash(~/.claude/calendar-bridge:*)",
+      "Bash(~/.claude/contacts-bridge:*)"
     ]
   }
 }
