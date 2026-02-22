@@ -1,6 +1,10 @@
 # Claude Apple Bridges
 
-Swift CLI tools that give [Claude Code](https://claude.ai/claude-code) access to Apple native apps via EventKit. Designed to be used as allowed tools in Claude Code's `settings.local.json`.
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![Platform: macOS 13+](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey.svg)
+![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)
+
+Swift CLI tools that give [Claude Code](https://claude.ai/claude-code) native access to Apple apps — Reminders, Calendar, and Contacts. Designed to be used as allowed tools in Claude Code's `settings.local.json`.
 
 ## Usage Examples with Claude Code
 
@@ -120,6 +124,8 @@ contacts-bridge show <name>                                   Show full details 
 contacts-bridge add <firstName> <lastName> [phone] [email]   Add a new contact
 ```
 
+---
+
 ## Setup
 
 ### 1. Compile
@@ -202,8 +208,29 @@ In your project's `.claude/settings.local.json`:
 }
 ```
 
+---
+
 ## Requirements
 
 - macOS 13+
 - Swift (comes with Xcode or `xcode-select --install`)
 - Claude Code
+
+---
+
+## Contributing
+
+Pull requests are welcome! When adding a new bridge:
+
+1. Create `<name>-bridge.swift` in the repo root
+2. Add compile instructions to `README.md` and `CLAUDE.md`
+3. Add the permission grant step to `README.md`
+4. Add usage examples to `README.md`
+
+See `CLAUDE.md` for developer notes and the branching workflow.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE) for details.
