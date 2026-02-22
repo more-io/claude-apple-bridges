@@ -252,6 +252,18 @@ In your project's `.claude/settings.local.json`:
 
 ---
 
+## Testing
+
+After installing, run the integration test suite to verify everything works:
+
+```bash
+make test
+```
+
+35 tests cover all commands across all three bridges — exit codes, output validation, and argument handling. No data is modified during tests.
+
+---
+
 ## Contributing
 
 Pull requests are welcome! When adding a new bridge:
