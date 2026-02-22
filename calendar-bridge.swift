@@ -44,7 +44,7 @@ func parseDate(_ string: String) -> Date? {
 func formatDateTime(_ date: Date) -> String {
     let formatter = DateFormatter()
     formatter.dateFormat = "EEE dd.MM. HH:mm"
-    formatter.locale = Locale(identifier: "de_DE")
+    formatter.locale = Locale.current
     return formatter.string(from: date)
 }
 

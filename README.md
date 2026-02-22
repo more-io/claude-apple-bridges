@@ -50,7 +50,7 @@ Claude calls `calendar-bridge add` directly without you having to open Calendar.
 
 Claude searches your Contacts and returns the number directly — no need to open the Contacts app.
 
-> *"Add Souhail to my contacts: +49 123 456789, souhail@example.com"*
+> *"Add Alex to my contacts: +49 123 456789, alex@example.com"*
 
 Claude calls `contacts-bridge add` and confirms once saved.
 
