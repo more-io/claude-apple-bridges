@@ -1,0 +1,11 @@
+# Compiled binaries
+reminders-bridge
+calendar-bridge
+contacts-bridge
+
+# macOS
+.DS_Store
+
+# Swift build artifacts
+*.o
+*.d

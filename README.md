@@ -131,6 +131,24 @@ contacts-bridge add <firstName> <lastName> [phone] [email]   Add a new contact
 ### 1. Compile
 
 ```bash
+# Install all bridges at once (recommended)
+git clone https://github.com/more-io/claude-apple-bridges.git
+cd claude-apple-bridges
+make install
+```
+
+Or install individually:
+
+```bash
+make install-reminders
+make install-calendar
+make install-contacts
+```
+
+<details>
+<summary>Manual compile (without make)</summary>
+
+```bash
 # reminders-bridge
 cat > /tmp/reminders-info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -179,6 +197,8 @@ swiftc calendar-bridge.swift -o ~/.claude/calendar-bridge \
   -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker /tmp/calendar-info.plist
 codesign --force --sign - --identifier com.claude.calendar-bridge ~/.claude/calendar-bridge
 ```
+
+</details>
 
 ### 2. Grant permissions
 
