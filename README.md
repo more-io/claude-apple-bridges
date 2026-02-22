@@ -40,6 +40,22 @@ Claude calls `calendar-bridge add` directly without you having to open Calendar.
 
 ---
 
+### Contacts Lookup
+
+> *"What's Rob's phone number?"*
+
+Claude searches your Contacts and returns the number directly — no need to open the Contacts app.
+
+> *"Add Souhail to my contacts: +49 123 456789, souhail@example.com"*
+
+Claude calls `contacts-bridge add` and confirms once saved.
+
+> *"Show me all details for my contact Thomas."*
+
+Claude returns name, phone, email, address and birthday in one view.
+
+---
+
 ### Development Workflow Integration
 
 > *"Start working on issue #42 — create a reminder to track it and add the 'in progress' label."*
