@@ -1,6 +1,7 @@
 #!/usr/bin/env swift
 
 // contacts-bridge.swift
+// Copyright © 2026 Tobias Stöger (tstoegi). Licensed under the MIT License.
 // A small CLI bridge for Claude Code to access Apple Contacts via Contacts framework.
 // Usage:
 //   contacts-bridge search <query>           - Search contacts by name, email or phone

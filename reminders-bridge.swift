@@ -1,6 +1,7 @@
 #!/usr/bin/env swift
 
 // reminders-bridge.swift
+// Copyright © 2026 Tobias Stöger (tstoegi). Licensed under the MIT License.
 // A small CLI bridge for Claude Code to access Apple Reminders via EventKit.
 // Usage:
 //   reminders-bridge lists                          - List all reminder lists

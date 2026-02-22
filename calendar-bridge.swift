@@ -1,6 +1,7 @@
 #!/usr/bin/env swift
 
 // calendar-bridge.swift
+// Copyright © 2026 Tobias Stöger (tstoegi). Licensed under the MIT License.
 // A small CLI bridge for Claude Code to access Apple Calendar via EventKit.
 // Usage:
 //   calendar-bridge calendars                                    - List all calendars
