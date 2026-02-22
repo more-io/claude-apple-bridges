@@ -51,10 +51,8 @@ install-calendar:
 	@echo "  ✓ calendar-bridge installed"
 
 test:
-	@echo "Running smoke tests (may trigger permission dialogs)..."
-	$(INSTALL_DIR)/reminders-bridge lists
-	$(INSTALL_DIR)/calendar-bridge today
-	$(INSTALL_DIR)/contacts-bridge search test
+	@echo "Running integration tests (may trigger permission dialogs on first run)..."
+	@bash test.sh
 
 clean:
 	rm -f $(INSTALL_DIR)/reminders-bridge
