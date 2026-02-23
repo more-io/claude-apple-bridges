@@ -167,6 +167,20 @@ mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  S
 mail-bridge delete <index> [mailbox] [account] [--force]                   Move to Trash (dry-run without --force)
 ```
 
+### tmux-bridge
+Read tmux session contents from Claude Code — great for end-of-day summaries.
+
+```
+tmux-bridge sessions                         List all running sessions
+tmux-bridge windows [session]                List windows in a session
+tmux-bridge panes [session]                  List all panes with path and command
+tmux-bridge read <target> [lines]            Read pane content (e.g. main:1.1, default: 1000 lines)
+tmux-bridge snapshot [session] [lines]       Capture all panes at once (default: 5000 lines)
+```
+
+Typical workflow: run your work in named tmux sessions, then ask Claude at the end of the day:
+> *"Read tmux-bridge snapshot and summarize what I worked on today."*
+
 ---
 
 ## Setup

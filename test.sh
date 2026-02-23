@@ -160,6 +160,20 @@ check        "delete missing arg: exits 1"         1  "$MB" delete
 check_contains "delete dry-run: no --force"       "Dry-run" "$MB" delete "1"
 check        "unknown command: exits 1"            1  "$MB" xyzzy
 
+# ─── tmux-bridge ──────────────────────────────────────────────────
+
+echo ""
+echo "tmux-bridge"
+echo "───────────"
+
+TB="$BRIDGE_DIR/tmux-bridge"
+
+check        "sessions: exits 0"                  0  "$TB" sessions
+check        "windows: exits 0"                   0  "$TB" windows
+check        "panes: exits 0"                     0  "$TB" panes
+check        "read missing arg: exits 1"          1  "$TB" read
+check        "unknown command: exits 1"           1  "$TB" xyzzy
+
 # ─── Summary ─────────────────────────────────────────────────────
 
 echo ""

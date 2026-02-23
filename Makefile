@@ -8,15 +8,16 @@
 #   make install-contacts  Install only contacts-bridge
 #   make install-notes     Install only notes-bridge
 #   make install-mail      Install only mail-bridge
+#   make install-tmux      Install only tmux-bridge
 #   make test              Run smoke tests (triggers permission dialogs on first run)
 #   make clean             Remove compiled binaries from ~/.claude/
 
 INSTALL_DIR := $(HOME)/.claude
 PLIST_DIR   := /tmp
 
-.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail test clean
+.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux test clean
 
-install: install-reminders install-contacts install-calendar install-notes install-mail
+install: install-reminders install-contacts install-calendar install-notes install-mail install-tmux
 	@echo ""
 	@echo "✅ All bridges installed to $(INSTALL_DIR)"
 	@echo ""
@@ -26,6 +27,13 @@ install: install-reminders install-contacts install-calendar install-notes insta
 	@echo "  ~/.claude/contacts-bridge search test"
 	@echo "  ~/.claude/notes-bridge accounts"
 	@echo "  ~/.claude/mail-bridge accounts"
+	@echo "  ~/.claude/tmux-bridge sessions"
+
+install-tmux:
+	@echo "→ Building tmux-bridge..."
+	swiftc tmux-bridge.swift -o $(INSTALL_DIR)/tmux-bridge
+	codesign --force --sign - --identifier com.claude.tmux-bridge $(INSTALL_DIR)/tmux-bridge
+	@echo "  ✓ tmux-bridge installed"
 
 install-reminders:
 	@echo "→ Building reminders-bridge..."
@@ -76,4 +84,5 @@ clean:
 	rm -f $(INSTALL_DIR)/contacts-bridge
 	rm -f $(INSTALL_DIR)/notes-bridge
 	rm -f $(INSTALL_DIR)/mail-bridge
+	rm -f $(INSTALL_DIR)/tmux-bridge
 	@echo "Removed all bridges from $(INSTALL_DIR)"
