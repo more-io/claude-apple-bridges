@@ -221,19 +221,48 @@ func readMessage(index: Int, mailbox: String, account: String) {
     print(text)
 }
 
-func sendMessage(to recipient: String, subject: String, body: String) {
+func getDefaultSenderEmail() -> String {
     let result = runScript("""
         tell application "Mail"
-            set newMsg to make new outgoing message with properties {subject:"\(subject)", content:"\(body)"}
+            set acc to item 1 of accounts
+            set addrs to email addresses of acc
+            if (count of addrs) > 0 then
+                return item 1 of addrs
+            end if
+            return ""
+        end tell
+    """)
+    return result?.stringValue ?? ""
+}
+
+func sendMessage(to recipient: String, subject: String, body: String, attachmentPath: String, fromEmail: String) {
+    if !attachmentPath.isEmpty && !FileManager.default.fileExists(atPath: attachmentPath) {
+        fputs("Attachment not found: \(attachmentPath)\n", stderr)
+        exit(1)
+    }
+    let sender = fromEmail.isEmpty ? getDefaultSenderEmail() : fromEmail
+    let senderProp = sender.isEmpty ? "" : ", sender:\"\(sender)\""
+    var script = """
+        tell application "Mail"
+            set newMsg to make new outgoing message with properties {subject:"\(subject)", content:"\(body)"\(senderProp)}
             tell newMsg
                 make new to recipient with properties {address:"\(recipient)"}
+        """
+    if !attachmentPath.isEmpty {
+        script += "\n        make new attachment with properties {file name:POSIX file \"\(attachmentPath)\"}"
+    }
+    script += """
+
             end tell
             send newMsg
             return "OK"
         end tell
-    """)
+    """
+    let result = runScript(script)
     if result?.stringValue == "OK" {
-        print("Message sent to \(recipient).")
+        let attachInfo = attachmentPath.isEmpty ? "" : ", with attachment"
+        let fromInfo = sender.isEmpty ? "" : " from \(sender)"
+        print("Message sent to \(recipient)\(fromInfo)\(attachInfo).")
     } else {
         fputs("Failed to send message.\n", stderr)
         exit(1)
@@ -285,7 +314,7 @@ guard args.count >= 2 else {
     print("  mail-bridge unread [mailbox] [account]")
     print("  mail-bridge search <query> [account]")
     print("  mail-bridge read <index> [mailbox] [account]")
-    print("  mail-bridge send <to> <subject> <body>")
+    print("  mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>]")
     print("  mail-bridge delete <index> [mailbox] [account] [--force]")
     exit(0)
 }
@@ -332,10 +361,22 @@ case "read":
 
 case "send":
     guard args.count >= 5 else {
-        fputs("Usage: mail-bridge send <to> <subject> <body>\n", stderr)
+        fputs("Usage: mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>]\n", stderr)
         exit(1)
     }
-    sendMessage(to: args[2], subject: args[3], body: args[4])
+    // Extract --from <email> anywhere in remaining args
+    var fromEmail = ""
+    if let fromIdx = args.firstIndex(of: "--from"), fromIdx + 1 < args.count {
+        fromEmail = args[fromIdx + 1]
+    }
+    // args[5] is attachment if it exists and isn't --from or the from-email value
+    var attachmentPath = ""
+    if args.count >= 6 && args[5] != "--from" && args[5] != fromEmail {
+        attachmentPath = args[5]
+    } else if args.count >= 7 && args[6] != "--from" && args[6] != fromEmail {
+        attachmentPath = args[6]
+    }
+    sendMessage(to: args[2], subject: args[3], body: args[4], attachmentPath: attachmentPath, fromEmail: fromEmail)
 
 case "delete":
     guard args.count >= 3, let index = Int(args[2]) else {
