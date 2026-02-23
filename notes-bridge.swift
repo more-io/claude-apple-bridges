@@ -240,6 +240,43 @@ func appendToNote(title: String, text: String, account: String) {
     }
 }
 
+func deleteNote(title: String, account: String, force: Bool) {
+    let result = runScript("""
+        tell application "Notes"
+            set matchNote to missing value
+            repeat with acc in accounts
+                if name of acc is "\(account)" or "\(account)" is "" then
+                    repeat with f in folders of acc
+                        repeat with n in notes of f
+                            if name of n is "\(title)" then
+                                set matchNote to n
+                                exit repeat
+                            end if
+                        end repeat
+                        if matchNote is not missing value then exit repeat
+                    end repeat
+                end if
+                if matchNote is not missing value then exit repeat
+            end repeat
+            if matchNote is missing value then
+                return "NOTE_NOT_FOUND"
+            end if
+            delete matchNote
+            return "OK"
+        end tell
+    """)
+    let status = result?.stringValue
+    if status == "NOTE_NOT_FOUND" {
+        fputs("Note '\(title)' not found.\n", stderr)
+        exit(1)
+    } else if status == "OK" {
+        print("Deleted note: \(title)")
+    } else {
+        fputs("Failed to delete note.\n", stderr)
+        exit(1)
+    }
+}
+
 // MARK: - Main
 
 let args = CommandLine.arguments
@@ -253,6 +290,7 @@ guard args.count >= 2 else {
     print("  notes-bridge read <title> [account]")
     print("  notes-bridge add <folder> <title> <body> [account]")
     print("  notes-bridge append <title> <text> [account]")
+    print("  notes-bridge delete <title> [--force] [account]")
     exit(0)
 }
 
@@ -304,6 +342,19 @@ case "append":
     }
     let account = args.count >= 5 ? args[4] : ""
     appendToNote(title: args[2], text: args[3], account: account)
+
+case "delete":
+    guard args.count >= 3 else {
+        fputs("Usage: notes-bridge delete <title> [--force] [account]\n", stderr)
+        exit(1)
+    }
+    let force = args.contains("--force")
+    let account = args.filter { $0 != "--force" }.count >= 4 ? args.filter { $0 != "--force" }[3] : ""
+    if !force {
+        print("Dry-run: would delete '\(args[2])'. Use --force to actually delete.")
+        exit(0)
+    }
+    deleteNote(title: args[2], account: account, force: force)
 
 default:
     fputs("Unknown command: \(command)\n", stderr)

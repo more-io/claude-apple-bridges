@@ -149,6 +149,7 @@ notes-bridge search <query>                                   Search by title an
 notes-bridge read <title> [account]                           Read note content as plain text
 notes-bridge add <folder> <title> <body> [account]            Create a new note
 notes-bridge append <title> <text> [account]                  Append text to an existing note
+notes-bridge delete <title> [--force] [account]               Delete a note (dry-run without --force)
 ```
 
 ---
