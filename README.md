@@ -152,6 +152,20 @@ notes-bridge append <title> <text> [account]                  Append text to an 
 notes-bridge delete <title> [--force] [account]               Delete a note (dry-run without --force)
 ```
 
+### mail-bridge
+Read and send Apple Mail messages from Claude Code.
+
+```
+mail-bridge accounts                                          List all email accounts
+mail-bridge mailboxes [account]                               List mailboxes (default: first account)
+mail-bridge list [mailbox] [account] [count]                  List recent messages (default: INBOX, 20)
+mail-bridge unread [mailbox] [account]                        List unread messages (default: INBOX)
+mail-bridge search <query> [account]                          Search subject/sender in INBOX
+mail-bridge read <index> [mailbox] [account]                  Read message by index (marks as read)
+mail-bridge send <to> <subject> <body>                        Send a new email
+mail-bridge delete <index> [mailbox] [account] [--force]      Move to Trash (dry-run without --force)
+```
+
 ---
 
 ## Setup
@@ -172,6 +186,7 @@ make install-reminders
 make install-calendar
 make install-contacts
 make install-notes
+make install-mail
 ```
 
 <details>
@@ -225,6 +240,14 @@ swiftc calendar-bridge.swift -o ~/.claude/calendar-bridge \
   -framework EventKit \
   -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker /tmp/calendar-info.plist
 codesign --force --sign - --identifier com.claude.calendar-bridge ~/.claude/calendar-bridge
+
+# notes-bridge
+swiftc notes-bridge.swift -o ~/.claude/notes-bridge
+codesign --force --sign - --identifier com.claude.notes-bridge ~/.claude/notes-bridge
+
+# mail-bridge
+swiftc mail-bridge.swift -o ~/.claude/mail-bridge
+codesign --force --sign - --identifier com.claude.mail-bridge ~/.claude/mail-bridge
 ```
 
 </details>
@@ -238,9 +261,10 @@ Run each binary once from Terminal to trigger the macOS permission dialog:
 ~/.claude/calendar-bridge today
 ~/.claude/contacts-bridge search "test"
 ~/.claude/notes-bridge accounts
+~/.claude/mail-bridge accounts
 ```
 
-Then approve in **System Settings → Privacy & Security → Reminders / Calendars / Contacts**. Notes access is granted automatically via AppleScript on first use.
+Then approve in **System Settings → Privacy & Security → Reminders / Calendars / Contacts / Automation**. Notes and Mail access is granted automatically via AppleScript on first use.
 
 ### 3. Add to Claude Code allowed tools
 
@@ -253,7 +277,8 @@ In your project's `.claude/settings.local.json`:
       "Bash(~/.claude/reminders-bridge:*)",
       "Bash(~/.claude/calendar-bridge:*)",
       "Bash(~/.claude/contacts-bridge:*)",
-      "Bash(~/.claude/notes-bridge:*)"
+      "Bash(~/.claude/notes-bridge:*)",
+      "Bash(~/.claude/mail-bridge:*)"
     ]
   }
 }

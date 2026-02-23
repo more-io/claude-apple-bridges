@@ -137,6 +137,28 @@ check        "delete missing arg: exits 1"          1  "$NB" delete
 check_contains "delete dry-run: no --force"        "Dry-run" "$NB" delete "xyzzy_nonexistent_42"
 check        "unknown command: exits 1"             1  "$NB" xyzzy
 
+# ─── mail-bridge ──────────────────────────────────────────────────
+
+echo ""
+echo "mail-bridge"
+echo "───────────"
+
+MB="$BRIDGE_DIR/mail-bridge"
+
+check        "accounts: exits 0"                   0  "$MB" accounts
+check_contains "accounts: returns at least one"    "." "$MB" accounts
+check        "mailboxes: exits 0"                  0  "$MB" mailboxes
+check_contains "mailboxes: returns INBOX"          "INBOX" "$MB" mailboxes
+check        "list: exits 0"                       0  "$MB" list
+check        "unread: exits 0"                     0  "$MB" unread
+check_contains "search nonexistent: no results"   "No messages" "$MB" search "xyzzy_nonexistent_42"
+check        "search missing arg: exits 1"         1  "$MB" search
+check        "read missing arg: exits 1"           1  "$MB" read
+check        "send missing arg: exits 1"           1  "$MB" send
+check        "delete missing arg: exits 1"         1  "$MB" delete
+check_contains "delete dry-run: no --force"       "Dry-run" "$MB" delete "1"
+check        "unknown command: exits 1"            1  "$MB" xyzzy
+
 # ─── Summary ─────────────────────────────────────────────────────
 
 echo ""

@@ -7,15 +7,16 @@
 #   make install-calendar  Install only calendar-bridge
 #   make install-contacts  Install only contacts-bridge
 #   make install-notes     Install only notes-bridge
+#   make install-mail      Install only mail-bridge
 #   make test              Run smoke tests (triggers permission dialogs on first run)
 #   make clean             Remove compiled binaries from ~/.claude/
 
 INSTALL_DIR := $(HOME)/.claude
 PLIST_DIR   := /tmp
 
-.PHONY: install install-reminders install-calendar install-contacts install-notes test clean
+.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail test clean
 
-install: install-reminders install-contacts install-calendar install-notes
+install: install-reminders install-contacts install-calendar install-notes install-mail
 	@echo ""
 	@echo "✅ All bridges installed to $(INSTALL_DIR)"
 	@echo ""
@@ -24,6 +25,7 @@ install: install-reminders install-contacts install-calendar install-notes
 	@echo "  ~/.claude/calendar-bridge today"
 	@echo "  ~/.claude/contacts-bridge search test"
 	@echo "  ~/.claude/notes-bridge accounts"
+	@echo "  ~/.claude/mail-bridge accounts"
 
 install-reminders:
 	@echo "→ Building reminders-bridge..."
@@ -58,6 +60,12 @@ install-notes:
 	codesign --force --sign - --identifier com.claude.notes-bridge $(INSTALL_DIR)/notes-bridge
 	@echo "  ✓ notes-bridge installed"
 
+install-mail:
+	@echo "→ Building mail-bridge..."
+	swiftc mail-bridge.swift -o $(INSTALL_DIR)/mail-bridge
+	codesign --force --sign - --identifier com.claude.mail-bridge $(INSTALL_DIR)/mail-bridge
+	@echo "  ✓ mail-bridge installed"
+
 test:
 	@echo "Running integration tests (may trigger permission dialogs on first run)..."
 	@bash test.sh
@@ -67,4 +75,5 @@ clean:
 	rm -f $(INSTALL_DIR)/calendar-bridge
 	rm -f $(INSTALL_DIR)/contacts-bridge
 	rm -f $(INSTALL_DIR)/notes-bridge
+	rm -f $(INSTALL_DIR)/mail-bridge
 	@echo "Removed all bridges from $(INSTALL_DIR)"
