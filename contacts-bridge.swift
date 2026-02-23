@@ -35,7 +35,6 @@ let fetchKeys: [CNKeyDescriptor] = [
     CNContactOrganizationNameKey as CNKeyDescriptor,
     CNContactPhoneNumbersKey as CNKeyDescriptor,
     CNContactEmailAddressesKey as CNKeyDescriptor,
-    CNContactNoteKey as CNKeyDescriptor,
     CNContactBirthdayKey as CNKeyDescriptor,
     CNContactPostalAddressesKey as CNKeyDescriptor,
 ]
@@ -59,7 +58,7 @@ func formatContact(_ contact: CNContact, detailed: Bool = false) {
     }
 
     if detailed {
-        if !contact.note.isEmpty {
+        if contact.isKeyAvailable(CNContactNoteKey), !contact.note.isEmpty {
             print("  📝 \(contact.note)")
         }
         if let bday = contact.birthday, let day = bday.day, let month = bday.month {
