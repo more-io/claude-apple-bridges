@@ -115,6 +115,26 @@ check        "delete missing arg: exits 1"     1  "$KB" delete
 check        "birthdays-upcoming missing arg: exits 1" 1 "$KB" birthdays-upcoming
 check        "unknown command: exits 1"        1  "$KB" xyzzy
 
+# ─── notes-bridge ────────────────────────────────────────────────
+
+echo ""
+echo "notes-bridge"
+echo "────────────"
+
+NB="$BRIDGE_DIR/notes-bridge"
+
+check        "accounts: exits 0"                    0  "$NB" accounts
+check_contains "accounts: returns iCloud"           "iCloud" "$NB" accounts
+check        "folders: exits 0"                     0  "$NB" folders
+check_contains "folders: returns at least one"      "." "$NB" folders
+check        "list: exits 0"                        0  "$NB" list
+check_contains "search nonexistent: no results"     "No notes" "$NB" search "xyzzy_nonexistent_42"
+check        "search missing arg: exits 1"          1  "$NB" search
+check        "read missing arg: exits 1"            1  "$NB" read
+check        "add missing arg: exits 1"             1  "$NB" add
+check        "append missing arg: exits 1"          1  "$NB" append
+check        "unknown command: exits 1"             1  "$NB" xyzzy
+
 # ─── Summary ─────────────────────────────────────────────────────
 
 echo ""

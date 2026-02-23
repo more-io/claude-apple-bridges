@@ -4,7 +4,7 @@
 ![Platform: macOS 13+](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey.svg)
 ![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)
 
-Swift CLI tools that give [Claude Code](https://claude.ai/claude-code) native access to Apple apps — Reminders, Calendar, and Contacts. Designed to be used as allowed tools in Claude Code's `settings.local.json`.
+Swift CLI tools that give [Claude Code](https://claude.ai/claude-code) native access to Apple apps — Reminders, Calendar, Contacts, and Notes. Designed to be used as allowed tools in Claude Code's `settings.local.json`.
 
 ## Usage Examples with Claude Code
 
@@ -138,6 +138,19 @@ contacts-bridge birthdays-today                               Contacts with birt
 contacts-bridge birthdays-upcoming <days>                     Upcoming birthdays in next N days
 ```
 
+### notes-bridge
+Read and write Apple Notes from Claude Code.
+
+```
+notes-bridge accounts                                         List all accounts
+notes-bridge folders [account]                                List folders (default: iCloud)
+notes-bridge list [folder] [account]                          List notes with modification date
+notes-bridge search <query>                                   Search by title and content across all accounts
+notes-bridge read <title> [account]                           Read note content as plain text
+notes-bridge add <folder> <title> <body> [account]            Create a new note
+notes-bridge append <title> <text> [account]                  Append text to an existing note
+```
+
 ---
 
 ## Setup
@@ -157,6 +170,7 @@ Or install individually:
 make install-reminders
 make install-calendar
 make install-contacts
+make install-notes
 ```
 
 <details>
@@ -222,9 +236,10 @@ Run each binary once from Terminal to trigger the macOS permission dialog:
 ~/.claude/reminders-bridge lists
 ~/.claude/calendar-bridge today
 ~/.claude/contacts-bridge search "test"
+~/.claude/notes-bridge accounts
 ```
 
-Then approve in **System Settings → Privacy & Security → Reminders / Calendars / Contacts**.
+Then approve in **System Settings → Privacy & Security → Reminders / Calendars / Contacts**. Notes access is granted automatically via AppleScript on first use.
 
 ### 3. Add to Claude Code allowed tools
 
@@ -236,7 +251,8 @@ In your project's `.claude/settings.local.json`:
     "allow": [
       "Bash(~/.claude/reminders-bridge:*)",
       "Bash(~/.claude/calendar-bridge:*)",
-      "Bash(~/.claude/contacts-bridge:*)"
+      "Bash(~/.claude/contacts-bridge:*)",
+      "Bash(~/.claude/notes-bridge:*)"
     ]
   }
 }
