@@ -156,14 +156,15 @@ notes-bridge delete <title> [--force] [account]               Delete a note (dry
 Read and send Apple Mail messages from Claude Code.
 
 ```
-mail-bridge accounts                                          List all email accounts
-mail-bridge mailboxes [account]                               List mailboxes (default: first account)
-mail-bridge list [mailbox] [account] [count]                  List recent messages (default: INBOX, 20)
-mail-bridge unread [mailbox] [account]                        List unread messages (default: INBOX)
-mail-bridge search <query> [account]                          Search subject/sender in INBOX
-mail-bridge read <index> [mailbox] [account]                  Read message by index (marks as read)
-mail-bridge send <to> <subject> <body>                        Send a new email
-mail-bridge delete <index> [mailbox] [account] [--force]      Move to Trash (dry-run without --force)
+mail-bridge accounts                                                       List all email accounts
+mail-bridge mailboxes [account]                                            List mailboxes (default: first account)
+mail-bridge list [mailbox] [account] [count]                               List recent messages (default: INBOX, 20)
+mail-bridge unread [mailbox] [account]                                     List unread messages (default: INBOX)
+mail-bridge search <query> [account]                                       Search subject/sender in INBOX
+mail-bridge read <index> [mailbox] [account]                               Read message by index (marks as read)
+mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]      Preview email (dry-run without --force)
+mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  Send the email
+mail-bridge delete <index> [mailbox] [account] [--force]                   Move to Trash (dry-run without --force)
 ```
 
 ---

@@ -155,6 +155,7 @@ check_contains "search nonexistent: no results"   "No messages" "$MB" search "xy
 check        "search missing arg: exits 1"         1  "$MB" search
 check        "read missing arg: exits 1"           1  "$MB" read
 check        "send missing arg: exits 1"           1  "$MB" send
+check_contains "send dry-run: no --force"         "Dry-run" "$MB" send "test@test.com" "Subject" "Body"
 check        "delete missing arg: exits 1"         1  "$MB" delete
 check_contains "delete dry-run: no --force"       "Dry-run" "$MB" delete "1"
 check        "unknown command: exits 1"            1  "$MB" xyzzy
