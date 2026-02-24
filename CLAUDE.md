@@ -60,6 +60,24 @@ codesign --force --sign - --identifier com.claude.calendar-bridge ~/.claude/cale
 - `main` — stable releases
 - `develop` — active development, PRs go here
 
+## notes-bridge: HTML Formatting
+
+The `add` and `append` commands support HTML — Notes.app renders it natively:
+
+```bash
+notes-bridge add "Work" "Title" "<b>Bold</b><br><ul><li>Item 1</li><li>Item 2</li></ul>"
+notes-bridge append "Title" "<br><b>Update:</b> some text"
+```
+
+Supported tags: `<b>`, `<i>`, `<u>`, `<br>`, `<ul>`, `<ol>`, `<li>`, `<h1>`–`<h3>`, `<a href="...">`, `<p>`
+
+`read` always returns plain text (HTML stripped).
+
+## mail-bridge: Send Behavior
+
+- **Without `--force`**: opens Mail.app compose window — user reviews and sends manually
+- **With `--force`**: sends directly without UI (use only when explicitly requested)
+
 ## Adding a New Bridge
 
 1. Create `<name>-bridge.swift` in repo root
