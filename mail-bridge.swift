@@ -241,39 +241,45 @@ func sendMessage(to recipient: String, subject: String, body: String, attachment
         exit(1)
     }
     let sender = fromEmail.isEmpty ? getDefaultSenderEmail() : fromEmail
-    let attachInfo = attachmentPath.isEmpty ? "" : "\n  Attachment: \(attachmentPath)"
-    let fromInfo = sender.isEmpty ? "" : "\n  From:       \(sender)"
-    if !force {
-        print("Dry-run: would send the following email (use --force to actually send):")
-        print("  To:         \(recipient)")
-        print("  Subject:    \(subject)\(fromInfo)\(attachInfo)")
-        print("  Body:       \(body.prefix(100))\(body.count > 100 ? "…" : "")")
-        exit(0)
-    }
     let senderProp = sender.isEmpty ? "" : ", sender:\"\(sender)\""
+    let visibleProp = force ? "" : ", visible:true"
     var script = """
         tell application "Mail"
-            set newMsg to make new outgoing message with properties {subject:"\(subject)", content:"\(body)"\(senderProp)}
+            set newMsg to make new outgoing message with properties {subject:"\(subject)", content:"\(body)"\(senderProp)\(visibleProp)}
             tell newMsg
                 make new to recipient with properties {address:"\(recipient)"}
         """
     if !attachmentPath.isEmpty {
         script += "\n        make new attachment with properties {file name:POSIX file \"\(attachmentPath)\"}"
     }
-    script += """
+    if force {
+        script += """
 
+                end tell
+                send newMsg
+                return "SENT"
             end tell
-            send newMsg
-            return "OK"
-        end tell
-    """
+        """
+    } else {
+        script += """
+
+                end tell
+            end tell
+            activate
+            return "OPENED"
+        """
+    }
     let result = runScript(script)
-    if result?.stringValue == "OK" {
+    let status = result?.stringValue
+    if status == "SENT" {
         let sentAttach = attachmentPath.isEmpty ? "" : ", with attachment"
         let sentFrom = sender.isEmpty ? "" : " from \(sender)"
         print("Message sent to \(recipient)\(sentFrom)\(sentAttach).")
+    } else if status == "OPENED" {
+        let openAttach = attachmentPath.isEmpty ? "" : " with attachment"
+        print("Compose window opened\(openAttach) — review and send manually in Mail.app.")
     } else {
-        fputs("Failed to send message.\n", stderr)
+        fputs("Failed to compose message.\n", stderr)
         exit(1)
     }
 }
