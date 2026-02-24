@@ -41,6 +41,18 @@ EOF
 swiftc calendar-bridge.swift -o ~/.claude/calendar-bridge -framework EventKit \
   -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker /tmp/calendar-info.plist
 codesign --force --sign - --identifier com.claude.calendar-bridge ~/.claude/calendar-bridge
+
+# Notes (no plist needed)
+swiftc notes-bridge.swift -o ~/.claude/notes-bridge
+codesign --force --sign - --identifier com.claude.notes-bridge ~/.claude/notes-bridge
+
+# Mail (no plist needed)
+swiftc mail-bridge.swift -o ~/.claude/mail-bridge
+codesign --force --sign - --identifier com.claude.mail-bridge ~/.claude/mail-bridge
+
+# tmux (no plist needed)
+swiftc tmux-bridge.swift -o ~/.claude/tmux-bridge
+codesign --force --sign - --identifier com.claude.tmux-bridge ~/.claude/tmux-bridge
 ```
 
 ## Quick Smoke Test
@@ -53,6 +65,9 @@ codesign --force --sign - --identifier com.claude.calendar-bridge ~/.claude/cale
 ~/.claude/calendar-bridge free-slots $(date +%Y-%m-%d)
 ~/.claude/contacts-bridge search "test"
 ~/.claude/contacts-bridge birthdays-upcoming 30
+~/.claude/notes-bridge accounts
+~/.claude/mail-bridge accounts
+~/.claude/tmux-bridge sessions
 ```
 
 ## Branching
