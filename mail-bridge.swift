@@ -189,10 +189,11 @@ func searchMessages(query: String, account: String) {
     }
 }
 
-func readMessage(index: Int, mailbox: String, account: String) {
+func readMessage(index: Int, mailbox: String, account: String, markRead: Bool) {
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
         : "account \"\(account)\""
+    let markReadScript = markRead ? "set read status of m to true" : ""
     let result = runScript("""
         tell application "Mail"
             set acc to \(accountClause)
@@ -206,7 +207,7 @@ func readMessage(index: Int, mailbox: String, account: String) {
             set d to date received of m
             set dateStr to date string of d & " " & time string of d
             set msgContent to "From: " & sender of m & "\\nDate: " & dateStr & "\\nSubject: " & subject of m & "\\n---\\n" & content of m
-            set read status of m to true
+            \(markReadScript)
             return msgContent
         end tell
     """)
@@ -328,7 +329,7 @@ guard args.count >= 2 else {
     print("  mail-bridge list [mailbox] [account] [count]")
     print("  mail-bridge unread [mailbox] [account]")
     print("  mail-bridge search <query> [account]")
-    print("  mail-bridge read <index> [mailbox] [account]")
+    print("  mail-bridge read <index> [mailbox] [account] [--mark-read]")
     print("  mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>] [--force]")
     print("  mail-bridge delete <index> [mailbox] [account] [--force]")
     exit(0)
@@ -367,12 +368,14 @@ case "search":
 
 case "read":
     guard args.count >= 3, let index = Int(args[2]) else {
-        fputs("Usage: mail-bridge read <index> [mailbox] [account]\n", stderr)
+        fputs("Usage: mail-bridge read <index> [mailbox] [account] [--mark-read]\n", stderr)
         exit(1)
     }
-    let mailbox = args.count >= 4 ? args[3] : defaultMailbox
-    let account = args.count >= 5 ? args[4] : ""
-    readMessage(index: index, mailbox: mailbox, account: account)
+    let markRead = args.contains("--mark-read")
+    let readArgs = args.filter { $0 != "--mark-read" }
+    let mailbox = readArgs.count >= 4 ? readArgs[3] : defaultMailbox
+    let account = readArgs.count >= 5 ? readArgs[4] : ""
+    readMessage(index: index, mailbox: mailbox, account: account, markRead: markRead)
 
 case "send":
     guard args.count >= 5 else {

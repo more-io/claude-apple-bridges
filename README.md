@@ -176,7 +176,8 @@ mail-bridge mailboxes [account]                                                L
 mail-bridge list [mailbox] [account] [count]                                   List recent messages (default: INBOX, 20)
 mail-bridge unread [mailbox] [account]                                         List unread messages (default: INBOX)
 mail-bridge search <query> [account]                                           Search subject/sender in INBOX
-mail-bridge read <index> [mailbox] [account]                                   Read message by index (marks as read)
+mail-bridge read <index> [mailbox] [account]                                   Read message (unread status preserved)
+mail-bridge read <index> [mailbox] [account] --mark-read                       Read message and mark as read
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]          Opens compose window — user reviews and sends manually
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  Sends directly without UI
 mail-bridge delete <index> [mailbox] [account] [--force]                       Move to Trash (dry-run without --force)
