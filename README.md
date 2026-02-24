@@ -152,6 +152,21 @@ notes-bridge append <title> <text> [account]                  Append text to an 
 notes-bridge delete <title> [--force] [account]               Delete a note (dry-run without --force)
 ```
 
+**Formatting:** The `body` and `text` parameters support HTML — Notes.app renders it natively.
+
+```bash
+# Plain text note
+notes-bridge add "Ideas" "Shopping" "Milk, Bread, Eggs"
+
+# Rich note with HTML formatting
+notes-bridge add "Work" "Meeting Notes" "<b>Attendees:</b> Tobias, Heiko<br><br><ul><li>Discussed Q1 roadmap</li><li>Next steps: review PR</li></ul>"
+
+# Append a formatted section
+notes-bridge append "Meeting Notes" "<br><b>Follow-up:</b><br><ul><li>Send report by Friday</li></ul>"
+```
+
+Supported HTML tags: `<b>`, `<i>`, `<u>`, `<br>`, `<ul>`, `<ol>`, `<li>`, `<h1>`–`<h3>`, `<a href="...">`, `<p>`
+
 ### mail-bridge
 Read and send Apple Mail messages from Claude Code.
 
