@@ -156,15 +156,28 @@ notes-bridge delete <title> [--force] [account]               Delete a note (dry
 Read and send Apple Mail messages from Claude Code.
 
 ```
-mail-bridge accounts                                                       List all email accounts
-mail-bridge mailboxes [account]                                            List mailboxes (default: first account)
-mail-bridge list [mailbox] [account] [count]                               List recent messages (default: INBOX, 20)
-mail-bridge unread [mailbox] [account]                                     List unread messages (default: INBOX)
-mail-bridge search <query> [account]                                       Search subject/sender in INBOX
-mail-bridge read <index> [mailbox] [account]                               Read message by index (marks as read)
-mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]      Preview email (dry-run without --force)
-mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  Send the email
-mail-bridge delete <index> [mailbox] [account] [--force]                   Move to Trash (dry-run without --force)
+mail-bridge accounts                                                           List all email accounts
+mail-bridge mailboxes [account]                                                List mailboxes (default: first account)
+mail-bridge list [mailbox] [account] [count]                                   List recent messages (default: INBOX, 20)
+mail-bridge unread [mailbox] [account]                                         List unread messages (default: INBOX)
+mail-bridge search <query> [account]                                           Search subject/sender in INBOX
+mail-bridge read <index> [mailbox] [account]                                   Read message by index (marks as read)
+mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]          Opens compose window — user reviews and sends manually
+mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  Sends directly without UI
+mail-bridge delete <index> [mailbox] [account] [--force]                       Move to Trash (dry-run without --force)
+```
+
+**Send examples:**
+
+```bash
+# Ask Claude to draft a reply → compose window opens in Mail.app for review:
+mail-bridge send heiko@web.de "Betreff" "Hallo Heiko, ..."
+
+# Claude sends automatically without user interaction (explicit intent required):
+mail-bridge send heiko@web.de "Betreff" "Hallo Heiko, ..." --force
+
+# With attachment and explicit sender:
+mail-bridge send heiko@web.de "Report" "See attached." /tmp/report.pdf --from work@company.com --force
 ```
 
 ### tmux-bridge
