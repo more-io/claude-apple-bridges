@@ -98,9 +98,9 @@ func listMessages(mailbox: String, account: String, count: Int) {
             set msgs to messages of mailbox "\(mailbox)" of acc
             set msgCount to count of msgs
             if msgCount is 0 then return out
-            set startIdx to msgCount - \(count - 1)
-            if startIdx < 1 then set startIdx to 1
-            repeat with i from msgCount to startIdx by -1
+            set endIdx to \(count)
+            if endIdx > msgCount then set endIdx to msgCount
+            repeat with i from 1 to endIdx
                 set m to item i of msgs
                 set isRead to read status of m
                 set readMark to ""
@@ -108,8 +108,7 @@ func listMessages(mailbox: String, account: String, count: Int) {
                 set d to date received of m
                 set mo to month of d as integer as string
                 set da to day of d as string
-                set displayIdx to (msgCount - i + 1) as text
-                set entry to displayIdx & ". " & subject of m & readMark & " — " & sender of m & " (" & mo & "/" & da & ")"
+                set entry to (i as text) & ". " & subject of m & readMark & " — " & sender of m & " (" & mo & "/" & da & ")"
                 set end of out to entry
             end repeat
             return out
@@ -199,11 +198,10 @@ func readMessage(index: Int, mailbox: String, account: String, markRead: Bool) {
             set acc to \(accountClause)
             set msgs to messages of mailbox "\(mailbox)" of acc
             set msgCount to count of msgs
-            set reverseIdx to msgCount - \(index - 1)
-            if reverseIdx < 1 or reverseIdx > msgCount then
+            if \(index) < 1 or \(index) > msgCount then
                 return "INDEX_OUT_OF_RANGE"
             end if
-            set m to item reverseIdx of msgs
+            set m to item \(index) of msgs
             set d to date received of m
             set dateStr to date string of d & " " & time string of d
             set msgContent to "From: " & sender of m & "\\nDate: " & dateStr & "\\nSubject: " & subject of m & "\\n---\\n" & content of m
@@ -298,11 +296,10 @@ func deleteMessage(index: Int, mailbox: String, account: String, force: Bool) {
             set acc to \(accountClause)
             set msgs to messages of mailbox "\(mailbox)" of acc
             set msgCount to count of msgs
-            set reverseIdx to msgCount - \(index - 1)
-            if reverseIdx < 1 or reverseIdx > msgCount then
+            if \(index) < 1 or \(index) > msgCount then
                 return "INDEX_OUT_OF_RANGE"
             end if
-            delete item reverseIdx of msgs
+            delete item \(index) of msgs
             return "OK"
         end tell
     """)
