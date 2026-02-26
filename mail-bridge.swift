@@ -335,6 +335,27 @@ guard args.count >= 2 else {
 let command = args[1]
 let defaultMailbox = "INBOX"
 
+// Get all account names for smart argument detection
+func getAccountNames() -> [String] {
+    let result = runScript("""
+        tell application "Mail"
+            set out to {}
+            repeat with acc in accounts
+                set end of out to name of acc
+            end repeat
+            return out
+        end tell
+    """)
+    return descriptorToStrings(result)
+}
+
+let accountNames = getAccountNames()
+
+// Check if a string is an account name (not a mailbox)
+func isAccountName(_ name: String) -> Bool {
+    return accountNames.contains(name)
+}
+
 switch command {
 
 case "accounts":
@@ -345,14 +366,32 @@ case "mailboxes":
     listMailboxes(account: account)
 
 case "list":
-    let mailbox = args.count >= 3 ? args[2] : defaultMailbox
-    let account = args.count >= 4 ? args[3] : ""
-    let count = args.count >= 5 ? (Int(args[4]) ?? 20) : 20
+    var mailbox = defaultMailbox
+    var account = ""
+    var count = 20
+    if args.count >= 3 {
+        if isAccountName(args[2]) {
+            account = args[2]
+            count = args.count >= 4 ? (Int(args[3]) ?? 20) : 20
+        } else {
+            mailbox = args[2]
+            account = args.count >= 4 ? args[3] : ""
+            count = args.count >= 5 ? (Int(args[4]) ?? 20) : 20
+        }
+    }
     listMessages(mailbox: mailbox, account: account, count: count)
 
 case "unread":
-    let mailbox = args.count >= 3 ? args[2] : defaultMailbox
-    let account = args.count >= 4 ? args[3] : ""
+    var mailbox = defaultMailbox
+    var account = ""
+    if args.count >= 3 {
+        if isAccountName(args[2]) {
+            account = args[2]
+        } else {
+            mailbox = args[2]
+            account = args.count >= 4 ? args[3] : ""
+        }
+    }
     listUnread(mailbox: mailbox, account: account)
 
 case "search":
