@@ -173,8 +173,8 @@ Read and send Apple Mail messages from Claude Code.
 ```
 mail-bridge accounts                                                           List all email accounts
 mail-bridge mailboxes [account]                                                List mailboxes (default: first account)
-mail-bridge list [mailbox] [account] [count]                                   List recent messages (default: INBOX, 20)
-mail-bridge unread [mailbox] [account]                                         List unread messages (default: INBOX)
+mail-bridge list [mailbox|account] [account] [count]                           List recent messages (auto-detects account names)
+mail-bridge unread [mailbox|account] [account]                                 List unread messages (auto-detects account names)
 mail-bridge search <query> [account]                                           Search subject/sender in INBOX
 mail-bridge read <index> [mailbox] [account]                                   Read message (unread status preserved)
 mail-bridge read <index> [mailbox] [account] --mark-read                       Read message and mark as read
