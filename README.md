@@ -350,6 +350,42 @@ make test
 
 ---
 
+## Skills
+
+Skills are structured prompt templates that Claude Code can load automatically when a bridge topic comes up. Instead of relying solely on CLAUDE.md for bridge documentation, the skill provides complete command syntax, parameters, and usage examples on demand.
+
+### What Skills Do
+
+When you type `/apple-bridges` in Claude Code (or when Claude detects you're asking about Reminders, Calendar, Contacts, Notes, Mail, or tmux), the skill loads:
+
+1. **SKILL.md** — Overview of all bridges with a quick reference table
+2. **Detail files** — Full documentation per bridge, loaded only when needed
+
+This keeps context usage minimal while giving Claude complete knowledge of every command.
+
+### Install Skills
+
+Skills are included with `make install`:
+
+```bash
+make install          # Installs bridges AND skills
+make install-skills   # Install skills only
+```
+
+This copies the skill files to `~/.claude/skills/apple-bridges/`.
+
+### Manual Install
+
+```bash
+cp -r skills/apple-bridges ~/.claude/skills/
+```
+
+### Verify
+
+Start a new Claude Code session and type `/apple-bridges` — it should be available as a slash command.
+
+---
+
 ## Contributing
 
 Pull requests are welcome! When adding a new bridge:
