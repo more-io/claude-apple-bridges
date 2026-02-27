@@ -4,7 +4,7 @@
 ![Platform: macOS 13+](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey.svg)
 ![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)
 
-Swift CLI tools that give [Claude Code](https://claude.ai/claude-code) native access to Apple apps — Reminders, Calendar, Contacts, and Notes. Designed to be used as allowed tools in Claude Code's `settings.local.json`.
+Swift CLI tools that give [Claude Code](https://claude.ai/claude-code) native access to Apple apps — Reminders, Calendar, Contacts, Notes, Mail, and tmux. Includes a [Claude Code skill](#skills) (`/apple-bridges`) with complete command reference for all bridges.
 
 ## Usage Examples with Claude Code
 
