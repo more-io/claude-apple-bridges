@@ -9,15 +9,18 @@
 #   make install-notes     Install only notes-bridge
 #   make install-mail      Install only mail-bridge
 #   make install-tmux      Install only tmux-bridge
+#   make install-skills    Install skills to ~/.claude/skills/apple-bridges/
 #   make test              Run smoke tests (triggers permission dialogs on first run)
 #   make clean             Remove compiled binaries from ~/.claude/
 
 INSTALL_DIR := $(HOME)/.claude
 PLIST_DIR   := /tmp
 
-.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux test clean
+.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux install-skills test clean
 
-install: install-reminders install-contacts install-calendar install-notes install-mail install-tmux
+SKILLS_DIR := $(INSTALL_DIR)/skills/apple-bridges
+
+install: install-reminders install-contacts install-calendar install-notes install-mail install-tmux install-skills
 	@echo ""
 	@echo "✅ All bridges installed to $(INSTALL_DIR)"
 	@echo ""
@@ -28,6 +31,12 @@ install: install-reminders install-contacts install-calendar install-notes insta
 	@echo "  ~/.claude/notes-bridge accounts"
 	@echo "  ~/.claude/mail-bridge accounts"
 	@echo "  ~/.claude/tmux-bridge sessions"
+
+install-skills:
+	@echo "→ Installing skills..."
+	@mkdir -p $(SKILLS_DIR)
+	@cp skills/apple-bridges/*.md $(SKILLS_DIR)/
+	@echo "  ✓ Skills installed to $(SKILLS_DIR)"
 
 install-tmux:
 	@echo "→ Building tmux-bridge..."
