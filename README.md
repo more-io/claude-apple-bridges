@@ -312,18 +312,17 @@ Then approve in **System Settings → Privacy & Security → Reminders / Calenda
 
 ### 3. Add to Claude Code allowed tools
 
-Add the bridges to your **global** `~/.claude/settings.json` so they work across all projects without confirmation prompts:
+In your project's `.claude/settings.local.json`:
 
 ```json
 {
   "permissions": {
     "allow": [
-      "Bash(~/.claude/reminders-bridge*)",
-      "Bash(~/.claude/calendar-bridge*)",
-      "Bash(~/.claude/contacts-bridge*)",
-      "Bash(~/.claude/notes-bridge*)",
-      "Bash(~/.claude/mail-bridge*)",
-      "Bash(~/.claude/tmux-bridge*)"
+      "Bash(~/.claude/reminders-bridge:*)",
+      "Bash(~/.claude/calendar-bridge:*)",
+      "Bash(~/.claude/contacts-bridge:*)",
+      "Bash(~/.claude/notes-bridge:*)",
+      "Bash(~/.claude/mail-bridge:*)"
     ]
   }
 }
