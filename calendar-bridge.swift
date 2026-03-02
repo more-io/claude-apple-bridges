@@ -76,6 +76,23 @@ func endOfDay(_ date: Date) -> Date {
     return Calendar.current.date(byAdding: components, to: startOfDay(date))!
 }
 
+// MARK: - String Normalization
+
+func normalizeQuotes(in string: String) -> String {
+    string
+        .replacingOccurrences(of: "\u{2018}", with: "'")
+        .replacingOccurrences(of: "\u{2019}", with: "'")
+        .replacingOccurrences(of: "\u{201C}", with: "\"")
+        .replacingOccurrences(of: "\u{201D}", with: "\"")
+}
+
+func findCalendar(named name: String) -> EKCalendar? {
+    let normalized = normalizeQuotes(in: name)
+    return store.calendars(for: .event).first(where: {
+        normalizeQuotes(in: $0.title) == normalized
+    })
+}
+
 // MARK: - Commands
 
 func listCalendars() {
@@ -173,8 +190,12 @@ func searchEvents(query: String) {
 }
 
 func addEvent(calendarName: String, title: String, start: Date, end: Date) {
-    guard let calendar = store.calendars(for: .event).first(where: { $0.title == calendarName }) else {
-        fputs("Calendar '\(calendarName)' not found.\n", stderr); exit(1)
+    guard let calendar = findCalendar(named: calendarName) else {
+        fputs("Calendar '\(calendarName)' not found.\n\nAvailable calendars:\n", stderr)
+        store.calendars(for: .event).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
+        exit(1)
     }
     guard !calendar.isImmutable else {
         fputs("Calendar '\(calendarName)' is read-only.\n", stderr); exit(1)
@@ -193,8 +214,12 @@ func addEvent(calendarName: String, title: String, start: Date, end: Date) {
 }
 
 func addAllDayEvent(calendarName: String, title: String, date: Date) {
-    guard let calendar = store.calendars(for: .event).first(where: { $0.title == calendarName }) else {
-        fputs("Calendar '\(calendarName)' not found.\n", stderr); exit(1)
+    guard let calendar = findCalendar(named: calendarName) else {
+        fputs("Calendar '\(calendarName)' not found.\n\nAvailable calendars:\n", stderr)
+        store.calendars(for: .event).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
+        exit(1)
     }
     guard !calendar.isImmutable else {
         fputs("Calendar '\(calendarName)' is read-only.\n", stderr); exit(1)
@@ -216,8 +241,12 @@ func addAllDayEvent(calendarName: String, title: String, date: Date) {
 }
 
 func deleteEvent(calendarName: String, title: String, date: Date, force: Bool) {
-    guard let calendar = store.calendars(for: .event).first(where: { $0.title == calendarName }) else {
-        fputs("Calendar '\(calendarName)' not found.\n", stderr); exit(1)
+    guard let calendar = findCalendar(named: calendarName) else {
+        fputs("Calendar '\(calendarName)' not found.\n\nAvailable calendars:\n", stderr)
+        store.calendars(for: .event).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
+        exit(1)
     }
     let predicate = store.predicateForEvents(withStart: startOfDay(date), end: endOfDay(date), calendars: [calendar])
     let matches = store.events(matching: predicate).filter { ($0.title ?? "") == title }
