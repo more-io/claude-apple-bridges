@@ -13,6 +13,22 @@
 
 import Foundation
 
+// MARK: - String Helpers
+
+func escapeForAppleScript(_ string: String) -> String {
+    string
+        .replacingOccurrences(of: "\\", with: "\\\\")
+        .replacingOccurrences(of: "\"", with: "\\\"")
+}
+
+func normalizeQuotes(in string: String) -> String {
+    string
+        .replacingOccurrences(of: "\u{2018}", with: "'")
+        .replacingOccurrences(of: "\u{2019}", with: "'")
+        .replacingOccurrences(of: "\u{201C}", with: "\"")
+        .replacingOccurrences(of: "\u{201D}", with: "\"")
+}
+
 // MARK: - AppleScript Runner
 
 func runScript(_ source: String) -> NSAppleEventDescriptor? {
@@ -88,7 +104,7 @@ func listFolders(account: String) {
     let result = runScript("""
         tell application "Notes"
             set out to {}
-            repeat with f in folders of account "\(account)"
+            repeat with f in folders of account "\(escapeForAppleScript(account))"
                 set end of out to name of f
             end repeat
             return out
@@ -106,7 +122,7 @@ func listNotes(folder: String, account: String) {
     let result = runScript("""
         tell application "Notes"
             set out to {}
-            set targetFolder to folder "\(folder)" of account "\(account)"
+            set targetFolder to folder "\(escapeForAppleScript(folder))" of account "\(escapeForAppleScript(account))"
             repeat with n in notes of targetFolder
                 set d to modification date of n
                 set dateStr to (year of d as string) & "-" ¬
@@ -132,8 +148,8 @@ func searchNotes(query: String) {
             repeat with acc in accounts
                 repeat with f in folders of acc
                     repeat with n in notes of f
-                        set titleMatch to name of n contains "\(query)"
-                        set bodyMatch to plaintext of n contains "\(query)"
+                        set titleMatch to name of n contains "\(escapeForAppleScript(query))"
+                        set bodyMatch to plaintext of n contains "\(escapeForAppleScript(query))"
                         if titleMatch or bodyMatch then
                             set end of out to name of n & "  [" & name of f & " / " & name of acc & "]"
                         end if
@@ -160,7 +176,7 @@ func readNote(title: String, account: String) {
                 if name of acc is "\(account)" or "\(account)" is "" then
                     repeat with f in folders of acc
                         repeat with n in notes of f
-                            if name of n is "\(title)" then
+                            if name of n is "\(escapeForAppleScript(title))" then
                                 set matchNote to n
                                 exit repeat
                             end if
@@ -190,8 +206,8 @@ func readNote(title: String, account: String) {
 func addNote(folder: String, title: String, body: String, account: String) {
     let result = runScript("""
         tell application "Notes"
-            set targetFolder to folder "\(folder)" of account "\(account)"
-            make new note at targetFolder with properties {name:"\(title)", body:"\(body)"}
+            set targetFolder to folder "\(escapeForAppleScript(folder))" of account "\(escapeForAppleScript(account))"
+            make new note at targetFolder with properties {name:"\(escapeForAppleScript(title))", body:"\(escapeForAppleScript(body))"}
             return "OK"
         end tell
     """)
@@ -211,7 +227,7 @@ func appendToNote(title: String, text: String, account: String) {
                 if name of acc is "\(account)" or "\(account)" is "" then
                     repeat with f in folders of acc
                         repeat with n in notes of f
-                            if name of n is "\(title)" then
+                            if name of n is "\(escapeForAppleScript(title))" then
                                 set matchNote to n
                                 exit repeat
                             end if
@@ -224,7 +240,7 @@ func appendToNote(title: String, text: String, account: String) {
             if matchNote is missing value then
                 return "NOTE_NOT_FOUND"
             end if
-            set body of matchNote to body of matchNote & "<br>\(text)"
+            set body of matchNote to body of matchNote & "<br>\(escapeForAppleScript(text))"
             return "OK"
         end tell
     """)
@@ -248,7 +264,7 @@ func deleteNote(title: String, account: String, force: Bool) {
                 if name of acc is "\(account)" or "\(account)" is "" then
                     repeat with f in folders of acc
                         repeat with n in notes of f
-                            if name of n is "\(title)" then
+                            if name of n is "\(escapeForAppleScript(title))" then
                                 set matchNote to n
                                 exit repeat
                             end if

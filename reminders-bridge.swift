@@ -31,6 +31,26 @@ func requestAccess() async -> Bool {
     }
 }
 
+// MARK: - String Normalization
+
+// Normalize typographic quotes to ASCII equivalents for reliable matching.
+// Apple apps (e.g. Reminders shared lists) often use smart quotes like U+2019
+// which don't match the ASCII apostrophe (U+0027) typed from the keyboard.
+func normalizeQuotes(in string: String) -> String {
+    string
+        .replacingOccurrences(of: "\u{2018}", with: "'")  // left single quote
+        .replacingOccurrences(of: "\u{2019}", with: "'")  // right single quote
+        .replacingOccurrences(of: "\u{201C}", with: "\"") // left double quote
+        .replacingOccurrences(of: "\u{201D}", with: "\"") // right double quote
+}
+
+func findCalendar(named listName: String) -> EKCalendar? {
+    let normalized = normalizeQuotes(in: listName)
+    return store.calendars(for: .reminder).first(where: {
+        normalizeQuotes(in: $0.title) == normalized
+    })
+}
+
 // MARK: - Formatting
 
 func formatReminder(_ reminder: EKReminder) {
@@ -89,8 +109,11 @@ func listAllLists() {
 }
 
 func listItems(listName: String, onlyIncomplete: Bool = false) {
-    guard let calendar = store.calendars(for: .reminder).first(where: { $0.title == listName }) else {
-        fputs("List '\(listName)' not found.\n", stderr)
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
         exit(1)
     }
     let semaphore = DispatchSemaphore(value: 0)
@@ -184,8 +207,11 @@ func createList(listName: String) {
 }
 
 func addReminder(listName: String, title: String, notes: String? = nil) {
-    guard let calendar = store.calendars(for: .reminder).first(where: { $0.title == listName }) else {
-        fputs("List '\(listName)' not found.\n", stderr)
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
         exit(1)
     }
     let reminder = EKReminder(eventStore: store)
@@ -202,8 +228,11 @@ func addReminder(listName: String, title: String, notes: String? = nil) {
 }
 
 func setDueDate(listName: String, title: String, dateString: String) {
-    guard let calendar = store.calendars(for: .reminder).first(where: { $0.title == listName }) else {
-        fputs("List '\(listName)' not found.\n", stderr)
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
         exit(1)
     }
     let formatter = DateFormatter()
@@ -233,8 +262,11 @@ func setDueDate(listName: String, title: String, dateString: String) {
 }
 
 func setNotes(listName: String, title: String, notes: String) {
-    guard let calendar = store.calendars(for: .reminder).first(where: { $0.title == listName }) else {
-        fputs("List '\(listName)' not found.\n", stderr)
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
         exit(1)
     }
     let semaphore = DispatchSemaphore(value: 0)
@@ -257,8 +289,11 @@ func setNotes(listName: String, title: String, notes: String) {
 }
 
 func completeReminder(listName: String, title: String) {
-    guard let calendar = store.calendars(for: .reminder).first(where: { $0.title == listName }) else {
-        fputs("List '\(listName)' not found.\n", stderr)
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
         exit(1)
     }
     let semaphore = DispatchSemaphore(value: 0)
@@ -281,8 +316,11 @@ func completeReminder(listName: String, title: String) {
 }
 
 func deleteReminder(listName: String, title: String, force: Bool) {
-    guard let calendar = store.calendars(for: .reminder).first(where: { $0.title == listName }) else {
-        fputs("List '\(listName)' not found.\n", stderr)
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
         exit(1)
     }
     let semaphore = DispatchSemaphore(value: 0)

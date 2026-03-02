@@ -15,6 +15,24 @@
 
 import Foundation
 
+// MARK: - String Helpers
+
+// Escape strings for safe interpolation inside AppleScript double-quoted strings.
+func escapeForAppleScript(_ string: String) -> String {
+    string
+        .replacingOccurrences(of: "\\", with: "\\\\")
+        .replacingOccurrences(of: "\"", with: "\\\"")
+}
+
+// Normalize typographic quotes to ASCII equivalents for reliable matching.
+func normalizeQuotes(in string: String) -> String {
+    string
+        .replacingOccurrences(of: "\u{2018}", with: "'")
+        .replacingOccurrences(of: "\u{2019}", with: "'")
+        .replacingOccurrences(of: "\u{201C}", with: "\"")
+        .replacingOccurrences(of: "\u{201D}", with: "\"")
+}
+
 // MARK: - AppleScript Runner
 
 func runScript(_ source: String) -> NSAppleEventDescriptor? {
@@ -69,7 +87,7 @@ func listAccounts() {
 func listMailboxes(account: String) {
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
-        : "account \"\(account)\""
+        : "account \"\(escapeForAppleScript(account))\""
     let result = runScript("""
         tell application "Mail"
             set out to {}
@@ -90,12 +108,12 @@ func listMailboxes(account: String) {
 func listMessages(mailbox: String, account: String, count: Int) {
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
-        : "account \"\(account)\""
+        : "account \"\(escapeForAppleScript(account))\""
     let result = runScript("""
         tell application "Mail"
             set out to {}
             set acc to \(accountClause)
-            set msgs to messages of mailbox "\(mailbox)" of acc
+            set msgs to messages of mailbox "\(escapeForAppleScript(mailbox))" of acc
             set msgCount to count of msgs
             if msgCount is 0 then return out
             set endIdx to \(count)
@@ -125,12 +143,12 @@ func listMessages(mailbox: String, account: String, count: Int) {
 func listUnread(mailbox: String, account: String) {
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
-        : "account \"\(account)\""
+        : "account \"\(escapeForAppleScript(account))\""
     let result = runScript("""
         tell application "Mail"
             set out to {}
             set acc to \(accountClause)
-            set msgs to messages of mailbox "\(mailbox)" of acc
+            set msgs to messages of mailbox "\(escapeForAppleScript(mailbox))" of acc
             set msgCount to count of msgs
             repeat with i from 1 to msgCount
                 set m to item i of msgs
@@ -157,7 +175,7 @@ func listUnread(mailbox: String, account: String) {
 func searchMessages(query: String, account: String) {
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
-        : "account \"\(account)\""
+        : "account \"\(escapeForAppleScript(account))\""
     let result = runScript("""
         tell application "Mail"
             set out to {}
@@ -166,8 +184,8 @@ func searchMessages(query: String, account: String) {
             set msgCount to count of msgs
             repeat with i from 1 to msgCount
                 set m to item i of msgs
-                set subjectMatch to subject of m contains "\(query)"
-                set senderMatch to sender of m contains "\(query)"
+                set subjectMatch to subject of m contains "\(escapeForAppleScript(query))"
+                set senderMatch to sender of m contains "\(escapeForAppleScript(query))"
                 if subjectMatch or senderMatch then
                     set d to date received of m
                     set mo to month of d as integer as string
@@ -191,12 +209,12 @@ func searchMessages(query: String, account: String) {
 func readMessage(index: Int, mailbox: String, account: String, markRead: Bool) {
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
-        : "account \"\(account)\""
+        : "account \"\(escapeForAppleScript(account))\""
     let markReadScript = markRead ? "set read status of m to true" : ""
     let result = runScript("""
         tell application "Mail"
             set acc to \(accountClause)
-            set msgs to messages of mailbox "\(mailbox)" of acc
+            set msgs to messages of mailbox "\(escapeForAppleScript(mailbox))" of acc
             set msgCount to count of msgs
             if \(index) < 1 or \(index) > msgCount then
                 return "INDEX_OUT_OF_RANGE"
@@ -240,16 +258,16 @@ func sendMessage(to recipient: String, subject: String, body: String, attachment
         exit(1)
     }
     let sender = fromEmail.isEmpty ? getDefaultSenderEmail() : fromEmail
-    let senderProp = sender.isEmpty ? "" : ", sender:\"\(sender)\""
+    let senderProp = sender.isEmpty ? "" : ", sender:\"\(escapeForAppleScript(sender))\""
     let visibleProp = force ? "" : ", visible:true"
     var script = """
         tell application "Mail"
-            set newMsg to make new outgoing message with properties {subject:"\(subject)", content:"\(body)"\(senderProp)\(visibleProp)}
+            set newMsg to make new outgoing message with properties {subject:"\(escapeForAppleScript(subject))", content:"\(escapeForAppleScript(body))"\(senderProp)\(visibleProp)}
             tell newMsg
-                make new to recipient with properties {address:"\(recipient)"}
+                make new to recipient with properties {address:"\(escapeForAppleScript(recipient))"}
         """
     if !attachmentPath.isEmpty {
-        script += "\n        make new attachment with properties {file name:POSIX file \"\(attachmentPath)\"}"
+        script += "\n        make new attachment with properties {file name:POSIX file \"\(escapeForAppleScript(attachmentPath))\"}"
     }
     if force {
         script += """
@@ -290,11 +308,11 @@ func deleteMessage(index: Int, mailbox: String, account: String, force: Bool) {
     }
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
-        : "account \"\(account)\""
+        : "account \"\(escapeForAppleScript(account))\""
     let result = runScript("""
         tell application "Mail"
             set acc to \(accountClause)
-            set msgs to messages of mailbox "\(mailbox)" of acc
+            set msgs to messages of mailbox "\(escapeForAppleScript(mailbox))" of acc
             set msgCount to count of msgs
             if \(index) < 1 or \(index) > msgCount then
                 return "INDEX_OUT_OF_RANGE"
@@ -353,7 +371,8 @@ let accountNames = getAccountNames()
 
 // Check if a string is an account name (not a mailbox)
 func isAccountName(_ name: String) -> Bool {
-    return accountNames.contains(name)
+    let normalized = normalizeQuotes(in: name)
+    return accountNames.contains(where: { normalizeQuotes(in: $0) == normalized })
 }
 
 switch command {
