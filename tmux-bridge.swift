@@ -8,6 +8,7 @@
 //   tmux-bridge windows [session]                 - List windows in a session
 //   tmux-bridge panes [session]                   - List all panes in a session
 //   tmux-bridge read <session:window.pane>         - Read pane content
+//   tmux-bridge write <target> <text> [--no-enter] - Send keystrokes to a pane
 //   tmux-bridge snapshot [session]                - Read all panes (for end-of-day summary)
 
 import Foundation
@@ -95,6 +96,24 @@ func readPane(target: String, lines: Int) {
     }
 }
 
+func writePane(target: String, text: String, sendEnter: Bool) {
+    var keys = [String]()
+    keys += ["send-keys", "-t", target, text]
+    if sendEnter {
+        keys += ["Enter"]
+    }
+    let result = shell(["tmux"] + keys)
+    if result.exit != 0 {
+        fputs("Pane '\(target)' not found. Use 'tmux-bridge panes' to list available targets.\n", stderr)
+        exit(1)
+    }
+    if sendEnter {
+        print("Sent to \(target): \(text) [Enter]")
+    } else {
+        print("Sent to \(target): \(text)")
+    }
+}
+
 func snapshot(session: String, lines: Int) {
     // Get all panes
     let args = ["list-panes"] + (session.isEmpty ? ["-a"] : ["-t", session]) + ["-F",
@@ -144,6 +163,7 @@ guard args.count >= 2 else {
     print("  tmux-bridge windows [session]                List windows in session")
     print("  tmux-bridge panes [session]                  List all panes")
     print("  tmux-bridge read <target> [lines]            Read pane (e.g. main:0.0, default: 1000 lines)")
+    print("  tmux-bridge write <target> <text> [--no-enter]  Send keystrokes to a pane")
     print("  tmux-bridge snapshot [session] [lines]       Full snapshot of all panes (default: 5000 lines)")
     exit(0)
 }
@@ -170,6 +190,15 @@ case "read":
     }
     let lines = args.count >= 4 ? (Int(args[3]) ?? 1000) : 1000
     readPane(target: args[2], lines: lines)
+
+case "write":
+    guard args.count >= 4 else {
+        fputs("Usage: tmux-bridge write <target> <text> [--no-enter]\n", stderr)
+        exit(1)
+    }
+    let sendEnter = !args.contains("--no-enter")
+    let text = args[3..<args.count].filter { $0 != "--no-enter" }.joined(separator: " ")
+    writePane(target: args[2], text: text, sendEnter: sendEnter)
 
 case "snapshot":
     let session = args.count >= 3 && Int(args[2]) == nil ? args[2] : ""

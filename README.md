@@ -197,14 +197,25 @@ mail-bridge send heiko@web.de "Report" "See attached." /tmp/report.pdf --from wo
 ```
 
 ### tmux-bridge
-Read tmux session contents from Claude Code — great for end-of-day summaries.
+Read and write tmux session contents from Claude Code — great for end-of-day summaries and interactive terminal control.
 
 ```
-tmux-bridge sessions                         List all running sessions
-tmux-bridge windows [session]                List windows in a session
-tmux-bridge panes [session]                  List all panes with path and command
-tmux-bridge read <target> [lines]            Read pane content (e.g. main:1.1, default: 1000 lines)
-tmux-bridge snapshot [session] [lines]       Capture all panes at once (default: 5000 lines)
+tmux-bridge sessions                              List all running sessions
+tmux-bridge windows [session]                     List windows in a session
+tmux-bridge panes [session]                       List all panes with path and command
+tmux-bridge read <target> [lines]                 Read pane content (e.g. main:1.1, default: 1000 lines)
+tmux-bridge write <target> <text> [--no-enter]    Send keystrokes to a pane
+tmux-bridge snapshot [session] [lines]            Capture all panes at once (default: 5000 lines)
+```
+
+**Write examples:**
+
+```bash
+# Send a command (text + Enter)
+tmux-bridge write main:0.0 "ls -la"
+
+# Send text without pressing Enter
+tmux-bridge write main:0.0 "partial input" --no-enter
 ```
 
 Typical workflow: run your work in named tmux sessions, then ask Claude at the end of the day:

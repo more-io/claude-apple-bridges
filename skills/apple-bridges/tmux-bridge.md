@@ -1,6 +1,6 @@
 # tmux-bridge
 
-Read tmux session contents from Claude Code. Great for end-of-day summaries and capturing terminal output.
+Read and write tmux session contents from Claude Code. Great for end-of-day summaries, capturing terminal output, and interactive terminal control.
 
 **Binary:** `~/.claude/tmux-bridge`
 
@@ -96,6 +96,30 @@ Read content from a specific pane.
 ```
 
 **Target format:** `session:window.pane` — use `panes` command to see available targets.
+
+### write
+
+Send keystrokes to a specific pane.
+
+```bash
+~/.claude/tmux-bridge write <target> <text> [--no-enter]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `target` | Yes | Pane target in `session:window.pane` format (e.g., `main:0.0`) |
+| `text` | Yes | Text to send to the pane |
+| `--no-enter` | No | Send text without pressing Enter |
+
+```bash
+# Send a command (text + Enter)
+~/.claude/tmux-bridge write "main:0.0" "ls -la"
+
+# Send text without pressing Enter
+~/.claude/tmux-bridge write "main:0.0" "partial input" --no-enter
+```
+
+**Use cases:** Running `sudo` commands, interactive terminal operations, system administration tasks from Claude Code sessions.
 
 ### snapshot
 
