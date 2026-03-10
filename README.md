@@ -175,7 +175,7 @@ mail-bridge accounts                                                           L
 mail-bridge mailboxes [account]                                                List mailboxes (default: first account)
 mail-bridge list [mailbox|account] [account] [count]                           List recent messages (auto-detects account names)
 mail-bridge unread [mailbox|account] [account]                                 List unread messages (auto-detects account names)
-mail-bridge search <query> [account]                                           Search subject/sender in INBOX
+mail-bridge search <query> [max_results] [account]                             Search subject/sender (all accounts by default)
 mail-bridge read <index> [mailbox] [account]                                   Read message (unread status preserved)
 mail-bridge read <index> [mailbox] [account] --mark-read                       Read message and mark as read
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]          Opens compose window — user reviews and sends manually

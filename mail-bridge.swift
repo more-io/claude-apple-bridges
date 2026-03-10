@@ -172,37 +172,81 @@ func listUnread(mailbox: String, account: String) {
     }
 }
 
-func searchMessages(query: String, account: String) {
-    let accountClause = account.isEmpty
-        ? "item 1 of accounts"
-        : "account \"\(escapeForAppleScript(account))\""
-    let result = runScript("""
-        tell application "Mail"
-            set out to {}
-            set acc to \(accountClause)
-            set msgs to messages of mailbox "INBOX" of acc
-            set msgCount to count of msgs
-            repeat with i from 1 to msgCount
-                set m to item i of msgs
-                set subjectMatch to subject of m contains "\(escapeForAppleScript(query))"
-                set senderMatch to sender of m contains "\(escapeForAppleScript(query))"
-                if subjectMatch or senderMatch then
-                    set d to date received of m
-                    set mo to month of d as integer as string
-                    set da to day of d as string
-                    set entry to subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
-                    set end of out to entry
-                end if
-            end repeat
-            return out
-        end tell
-    """)
-    let matches = descriptorToStrings(result)
-    if matches.isEmpty {
-        print("No messages matching '\(query)'.")
+func searchMessages(query: String, account: String, maxResults: Int) {
+    let escapedQuery = escapeForAppleScript(query)
+    let limit = maxResults > 0 ? maxResults : 50
+
+    if account.isEmpty {
+        // Search ALL accounts
+        var allMatches: [String] = []
+        for accName in accountNames {
+            let escapedAcc = escapeForAppleScript(accName)
+            let result = runScript("""
+                tell application "Mail"
+                    set out to {}
+                    set acc to account "\(escapedAcc)"
+                    set allMailboxes to {"INBOX"}
+                    repeat with mbName in allMailboxes
+                        try
+                            set msgs to messages of mailbox (mbName as text) of acc
+                            set msgCount to count of msgs
+                            repeat with i from 1 to msgCount
+                                set m to item i of msgs
+                                set subjectMatch to subject of m contains "\(escapedQuery)"
+                                set senderMatch to sender of m contains "\(escapedQuery)"
+                                if subjectMatch or senderMatch then
+                                    set d to date received of m
+                                    set mo to month of d as integer as string
+                                    set da to day of d as string
+                                    set entry to "[" & name of acc & "] " & subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
+                                    set end of out to entry
+                                    if (count of out) >= \(limit) then return out
+                                end if
+                            end repeat
+                        end try
+                    end repeat
+                    return out
+                end tell
+            """)
+            allMatches.append(contentsOf: descriptorToStrings(result))
+            if allMatches.count >= limit { break }
+        }
+        if allMatches.isEmpty {
+            print("No messages matching '\(query)' across all accounts.")
+        } else {
+            print("Found \(allMatches.count) message(s):")
+            allMatches.prefix(limit).forEach { print("  " + $0) }
+        }
     } else {
-        print("Found \(matches.count) message(s):")
-        matches.forEach { print("  " + $0) }
+        let result = runScript("""
+            tell application "Mail"
+                set out to {}
+                set acc to account "\(escapeForAppleScript(account))"
+                set msgs to messages of mailbox "INBOX" of acc
+                set msgCount to count of msgs
+                repeat with i from 1 to msgCount
+                    set m to item i of msgs
+                    set subjectMatch to subject of m contains "\(escapedQuery)"
+                    set senderMatch to sender of m contains "\(escapedQuery)"
+                    if subjectMatch or senderMatch then
+                        set d to date received of m
+                        set mo to month of d as integer as string
+                        set da to day of d as string
+                        set entry to subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
+                        set end of out to entry
+                        if (count of out) >= \(limit) then return out
+                    end if
+                end repeat
+                return out
+            end tell
+        """)
+        let matches = descriptorToStrings(result)
+        if matches.isEmpty {
+            print("No messages matching '\(query)'.")
+        } else {
+            print("Found \(matches.count) message(s):")
+            matches.prefix(limit).forEach { print("  " + $0) }
+        }
     }
 }
 
@@ -389,13 +433,24 @@ case "list":
     var account = ""
     var count = 20
     if args.count >= 3 {
-        if isAccountName(args[2]) {
+        if let num = Int(args[2]) {
+            // list <count>
+            count = num
+        } else if isAccountName(args[2]) {
+            // list <account> [count]
             account = args[2]
             count = args.count >= 4 ? (Int(args[3]) ?? 20) : 20
         } else {
+            // list <mailbox> [count | account] [count]
             mailbox = args[2]
-            account = args.count >= 4 ? args[3] : ""
-            count = args.count >= 5 ? (Int(args[4]) ?? 20) : 20
+            if args.count >= 4 {
+                if let num = Int(args[3]) {
+                    count = num
+                } else if isAccountName(args[3]) {
+                    account = args[3]
+                    count = args.count >= 5 ? (Int(args[4]) ?? 20) : 20
+                }
+            }
         }
     }
     listMessages(mailbox: mailbox, account: account, count: count)
@@ -415,11 +470,21 @@ case "unread":
 
 case "search":
     guard args.count >= 3 else {
-        fputs("Usage: mail-bridge search <query> [account]\n", stderr)
+        fputs("Usage: mail-bridge search <query> [max_results] [account]\n", stderr)
         exit(1)
     }
-    let account = args.count >= 4 ? args[3] : ""
-    searchMessages(query: args[2], account: account)
+    var searchAccount = ""
+    var searchMax = 50
+    // args after query: could be a number (max results), an account name, or both
+    if args.count >= 4 {
+        if let num = Int(args[3]) {
+            searchMax = num
+            searchAccount = args.count >= 5 ? args[4] : ""
+        } else if isAccountName(args[3]) {
+            searchAccount = args[3]
+        }
+    }
+    searchMessages(query: args[2], account: searchAccount, maxResults: searchMax)
 
 case "read":
     guard args.count >= 3, let index = Int(args[2]) else {
