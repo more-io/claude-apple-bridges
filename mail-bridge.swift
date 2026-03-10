@@ -10,7 +10,8 @@
 //   mail-bridge unread [mailbox] [account]             - List unread messages (default: INBOX)
 //   mail-bridge search <query> [account]               - Search subject/sender in INBOX
 //   mail-bridge read <index> [mailbox] [account]       - Read message by index
-//   mail-bridge send <to> <subject> <body>             - Send a new email
+//   mail-bridge send <to> <subject> <body>             - Send a new email (plain text)
+//   mail-bridge send <to> <subject> --html-file <path>  - Send HTML email from file
 //   mail-bridge delete <index> [mailbox] [account] [--force]  - Move message to Trash
 
 import Foundation
@@ -296,20 +297,31 @@ func getDefaultSenderEmail() -> String {
     return result?.stringValue ?? ""
 }
 
-func sendMessage(to recipient: String, subject: String, body: String, attachmentPath: String, fromEmail: String, force: Bool) {
+func sendMessage(to recipient: String, subject: String, body: String, attachmentPath: String, fromEmail: String, force: Bool, htmlFilePath: String) {
     if !attachmentPath.isEmpty && !FileManager.default.fileExists(atPath: attachmentPath) {
         fputs("Attachment not found: \(attachmentPath)\n", stderr)
+        exit(1)
+    }
+    if !htmlFilePath.isEmpty && !FileManager.default.fileExists(atPath: htmlFilePath) {
+        fputs("HTML file not found: \(htmlFilePath)\n", stderr)
         exit(1)
     }
     let sender = fromEmail.isEmpty ? getDefaultSenderEmail() : fromEmail
     let senderProp = sender.isEmpty ? "" : ", sender:\"\(escapeForAppleScript(sender))\""
     let visibleProp = force ? "" : ", visible:true"
+
+    // When using --html-file, read HTML from file inside AppleScript to avoid escaping issues.
+    // The content property is set to empty string; html content overrides it.
+    let contentValue = htmlFilePath.isEmpty ? escapeForAppleScript(body) : ""
     var script = """
         tell application "Mail"
-            set newMsg to make new outgoing message with properties {subject:"\(escapeForAppleScript(subject))", content:"\(escapeForAppleScript(body))"\(senderProp)\(visibleProp)}
+            set newMsg to make new outgoing message with properties {subject:"\(escapeForAppleScript(subject))", content:"\(contentValue)"\(senderProp)\(visibleProp)}
             tell newMsg
                 make new to recipient with properties {address:"\(escapeForAppleScript(recipient))"}
         """
+    if !htmlFilePath.isEmpty {
+        script += "\n        set html content of newMsg to (do shell script \"cat \" & quoted form of \"\(escapeForAppleScript(htmlFilePath))\")"
+    }
     if !attachmentPath.isEmpty {
         script += "\n        make new attachment with properties {file name:POSIX file \"\(escapeForAppleScript(attachmentPath))\"}"
     }
@@ -389,7 +401,7 @@ guard args.count >= 2 else {
     print("  mail-bridge unread [mailbox] [account]")
     print("  mail-bridge search <query> [account]")
     print("  mail-bridge read <index> [mailbox] [account] [--mark-read]")
-    print("  mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>] [--force]")
+    print("  mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>] [--html-file <path>] [--force]")
     print("  mail-bridge delete <index> [mailbox] [account] [--force]")
     exit(0)
 }
@@ -498,19 +510,26 @@ case "read":
     readMessage(index: index, mailbox: mailbox, account: account, markRead: markRead)
 
 case "send":
-    guard args.count >= 5 else {
-        fputs("Usage: mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>] [--force]\n", stderr)
-        exit(1)
-    }
     let force = args.contains("--force")
     var fromEmail = ""
     if let fromIdx = args.firstIndex(of: "--from"), fromIdx + 1 < args.count {
         fromEmail = args[fromIdx + 1]
     }
-    let flagArgs = Set(["--force", "--from", fromEmail].filter { !$0.isEmpty })
-    let positional = args.dropFirst(5).filter { !flagArgs.contains($0) }
+    var htmlFilePath = ""
+    if let htmlIdx = args.firstIndex(of: "--html-file"), htmlIdx + 1 < args.count {
+        htmlFilePath = args[htmlIdx + 1]
+    }
+    // With --html-file, body is optional (only to/subject required)
+    let minArgs = htmlFilePath.isEmpty ? 5 : 4
+    guard args.count >= minArgs else {
+        fputs("Usage: mail-bridge send <to> <subject> [body] [/path/to/attachment] [--from <email>] [--html-file <path>] [--force]\n", stderr)
+        exit(1)
+    }
+    let body = args.count >= 5 ? args[4] : ""
+    let flagArgs = Set(["--force", "--from", fromEmail, "--html-file", htmlFilePath].filter { !$0.isEmpty })
+    let positional = args.dropFirst(min(5, args.count)).filter { !flagArgs.contains($0) }
     let attachmentPath = positional.first ?? ""
-    sendMessage(to: args[2], subject: args[3], body: args[4], attachmentPath: attachmentPath, fromEmail: fromEmail, force: force)
+    sendMessage(to: args[2], subject: args[3], body: body, attachmentPath: attachmentPath, fromEmail: fromEmail, force: force, htmlFilePath: htmlFilePath)
 
 case "delete":
     guard args.count >= 3, let index = Int(args[2]) else {

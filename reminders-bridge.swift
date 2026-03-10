@@ -86,8 +86,9 @@ func formatReminder(_ reminder: EKReminder) {
         recurrenceStr = ""
     }
     let listStr = " [\(reminder.calendar.title)]"
+    let idStr = " {id:\(reminder.calendarItemIdentifier)}"
     let notesStr = (reminder.notes != nil && !reminder.notes!.isEmpty) ? "\n     Notes: \(reminder.notes!)" : ""
-    print("\(status) \(reminder.title ?? "(no title)")\(priority)\(dueStr)\(recurrenceStr)\(listStr)\(notesStr)")
+    print("\(status) \(reminder.title ?? "(no title)")\(priority)\(dueStr)\(recurrenceStr)\(listStr)\(idStr)\(notesStr)")
 }
 
 // MARK: - Fetch Helpers
