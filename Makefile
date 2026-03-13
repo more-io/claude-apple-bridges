@@ -15,6 +15,7 @@
 
 INSTALL_DIR := $(HOME)/.claude
 PLIST_DIR   := /tmp
+CODESIGN_IDENTITY ?= -
 
 .PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux install-skills test clean
 
@@ -41,7 +42,7 @@ install-skills:
 install-tmux:
 	@echo "→ Building tmux-bridge..."
 	swiftc tmux-bridge.swift -o $(INSTALL_DIR)/tmux-bridge
-	codesign --force --sign - --identifier com.claude.tmux-bridge $(INSTALL_DIR)/tmux-bridge
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.tmux-bridge $(INSTALL_DIR)/tmux-bridge
 	@echo "  ✓ tmux-bridge installed"
 
 install-reminders:
@@ -50,7 +51,7 @@ install-reminders:
 	swiftc reminders-bridge.swift -o $(INSTALL_DIR)/reminders-bridge \
 	  -framework EventKit \
 	  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker $(PLIST_DIR)/reminders-info.plist
-	codesign --force --sign - --identifier com.claude.reminders-bridge $(INSTALL_DIR)/reminders-bridge
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.reminders-bridge $(INSTALL_DIR)/reminders-bridge
 	@echo "  ✓ reminders-bridge installed"
 
 install-contacts:
@@ -59,7 +60,7 @@ install-contacts:
 	swiftc contacts-bridge.swift -o $(INSTALL_DIR)/contacts-bridge \
 	  -framework Contacts \
 	  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker $(PLIST_DIR)/contacts-info.plist
-	codesign --force --sign - --identifier com.claude.contacts-bridge $(INSTALL_DIR)/contacts-bridge
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.contacts-bridge $(INSTALL_DIR)/contacts-bridge
 	@echo "  ✓ contacts-bridge installed"
 
 install-calendar:
@@ -68,19 +69,19 @@ install-calendar:
 	swiftc calendar-bridge.swift -o $(INSTALL_DIR)/calendar-bridge \
 	  -framework EventKit \
 	  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker $(PLIST_DIR)/calendar-info.plist
-	codesign --force --sign - --identifier com.claude.calendar-bridge $(INSTALL_DIR)/calendar-bridge
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.calendar-bridge $(INSTALL_DIR)/calendar-bridge
 	@echo "  ✓ calendar-bridge installed"
 
 install-notes:
 	@echo "→ Building notes-bridge..."
 	swiftc notes-bridge.swift -o $(INSTALL_DIR)/notes-bridge
-	codesign --force --sign - --identifier com.claude.notes-bridge $(INSTALL_DIR)/notes-bridge
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.notes-bridge $(INSTALL_DIR)/notes-bridge
 	@echo "  ✓ notes-bridge installed"
 
 install-mail:
 	@echo "→ Building mail-bridge..."
 	swiftc mail-bridge.swift -o $(INSTALL_DIR)/mail-bridge
-	codesign --force --sign - --identifier com.claude.mail-bridge $(INSTALL_DIR)/mail-bridge
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.mail-bridge $(INSTALL_DIR)/mail-bridge
 	@echo "  ✓ mail-bridge installed"
 
 test:
