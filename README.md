@@ -234,6 +234,14 @@ cd claude-apple-bridges
 make install
 ```
 
+**Optional: Persistent TCC permissions with a Developer certificate**
+
+By default, bridges are ad-hoc signed. macOS TCC may re-prompt for permissions in new terminal sessions (especially remote/SSH). If you have an Apple Developer certificate, pass `CODESIGN_IDENTITY` for persistent grants:
+
+```bash
+make install CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)"
+```
+
 Or install individually:
 
 ```bash
