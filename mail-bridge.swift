@@ -251,11 +251,12 @@ func searchMessages(query: String, account: String, maxResults: Int) {
     }
 }
 
-func readMessage(index: Int, mailbox: String, account: String, markRead: Bool) {
+func readMessage(index: Int, mailbox: String, account: String, markRead: Bool, raw: Bool) {
     let accountClause = account.isEmpty
         ? "item 1 of accounts"
         : "account \"\(escapeForAppleScript(account))\""
     let markReadScript = markRead ? "set read status of m to true" : ""
+    let bodyProp = raw ? "source of m" : "content of m"
     let result = runScript("""
         tell application "Mail"
             set acc to \(accountClause)
@@ -267,7 +268,7 @@ func readMessage(index: Int, mailbox: String, account: String, markRead: Bool) {
             set m to item \(index) of msgs
             set d to date received of m
             set dateStr to date string of d & " " & time string of d
-            set msgContent to "From: " & sender of m & "\\nDate: " & dateStr & "\\nSubject: " & subject of m & "\\n---\\n" & content of m
+            set msgContent to "From: " & sender of m & "\\nDate: " & dateStr & "\\nSubject: " & subject of m & "\\n---\\n" & (\(bodyProp))
             \(markReadScript)
             return msgContent
         end tell
@@ -500,14 +501,15 @@ case "search":
 
 case "read":
     guard args.count >= 3, let index = Int(args[2]) else {
-        fputs("Usage: mail-bridge read <index> [mailbox] [account] [--mark-read]\n", stderr)
+        fputs("Usage: mail-bridge read <index> [mailbox] [account] [--mark-read] [--raw]\n", stderr)
         exit(1)
     }
     let markRead = args.contains("--mark-read")
-    let readArgs = args.filter { $0 != "--mark-read" }
+    let raw = args.contains("--raw")
+    let readArgs = args.filter { $0 != "--mark-read" && $0 != "--raw" }
     let mailbox = readArgs.count >= 4 ? readArgs[3] : defaultMailbox
     let account = readArgs.count >= 5 ? readArgs[4] : ""
-    readMessage(index: index, mailbox: mailbox, account: account, markRead: markRead)
+    readMessage(index: index, mailbox: mailbox, account: account, markRead: markRead, raw: raw)
 
 case "send":
     let force = args.contains("--force")

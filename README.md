@@ -178,10 +178,32 @@ mail-bridge unread [mailbox|account] [account]                                 L
 mail-bridge search <query> [max_results] [account]                             Search subject/sender (all accounts by default)
 mail-bridge read <index> [mailbox] [account]                                   Read message (unread status preserved)
 mail-bridge read <index> [mailbox] [account] --mark-read                       Read message and mark as read
+mail-bridge read <index> [mailbox] [account] --raw                             Read raw RFC822 source (HTML + MIME attachments)
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]          Opens compose window — user reviews and sends manually
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  Sends directly without UI
 mail-bridge delete <index> [mailbox] [account] [--force]                       Move to Trash (dry-run without --force)
 ```
+
+**`--raw` example — extract PDF attachments from invoice emails:**
+
+```bash
+# Dump the raw message source (RFC822, includes HTML body + MIME attachments)
+mail-bridge read 42 INBOX work@company.com --raw > /tmp/mail.eml
+
+# Then parse with Python to save any PDF attachment
+python3 <<'EOF'
+import email
+raw = open('/tmp/mail.eml').read().split('\n---\n', 1)[1]
+msg = email.message_from_string(raw)
+for part in msg.walk():
+    fn = part.get_filename() or ''
+    if fn.endswith('.pdf'):
+        open(f'/tmp/{fn}', 'wb').write(part.get_payload(decode=True))
+        print('Saved', fn)
+EOF
+```
+
+Use `--raw` when the default plain-text body strips URLs, images, or attachments you need (e.g. Stripe invoice links, PDF receipts, ticket attachments).
 
 **Send examples:**
 
