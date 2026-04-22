@@ -2,6 +2,9 @@
 reminders-bridge
 calendar-bridge
 contacts-bridge
+notes-bridge
+mail-bridge
+tmux-bridge
 
 # macOS
 .DS_Store

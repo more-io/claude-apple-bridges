@@ -207,6 +207,43 @@ func createList(listName: String) {
     }
 }
 
+func renameList(oldName: String, newName: String) {
+    guard let calendar = findCalendar(named: oldName) else {
+        fputs("List '\(oldName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
+        exit(1)
+    }
+    // Guard against an accidental collision with an existing list of the same name
+    if findCalendar(named: newName) != nil {
+        fputs("Error: a list named '\(newName)' already exists.\n", stderr)
+        exit(1)
+    }
+    calendar.title = newName
+    do {
+        try store.saveCalendar(calendar, commit: true)
+        print("Renamed list: \(oldName) → \(newName)")
+    } catch {
+        fputs("Error renaming list: \(error.localizedDescription)\n", stderr)
+        exit(1)
+    }
+}
+
+func deleteList(listName: String) {
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n", stderr)
+        exit(1)
+    }
+    do {
+        try store.removeCalendar(calendar, commit: true)
+        print("Deleted list: \(listName)")
+    } catch {
+        fputs("Error deleting list: \(error.localizedDescription)\n", stderr)
+        exit(1)
+    }
+}
+
 func addReminder(listName: String, title: String, notes: String? = nil) {
     guard let calendar = findCalendar(named: listName) else {
         fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
@@ -356,6 +393,8 @@ guard args.count >= 2 else {
     print("Usage:")
     print("  reminders-bridge lists")
     print("  reminders-bridge create-list <listName>")
+    print("  reminders-bridge rename-list <oldName> <newName>")
+    print("  reminders-bridge delete-list <listName>")
     print("  reminders-bridge items <listName>")
     print("  reminders-bridge incomplete <listName>")
     print("  reminders-bridge today")
@@ -392,6 +431,14 @@ case "lists":
 case "create-list":
     guard args.count >= 3 else { fputs("Usage: reminders-bridge create-list <listName>\n", stderr); exit(1) }
     createList(listName: args[2])
+
+case "rename-list":
+    guard args.count >= 4 else { fputs("Usage: reminders-bridge rename-list <oldName> <newName>\n", stderr); exit(1) }
+    renameList(oldName: args[2], newName: args[3])
+
+case "delete-list":
+    guard args.count >= 3 else { fputs("Usage: reminders-bridge delete-list <listName>\n", stderr); exit(1) }
+    deleteList(listName: args[2])
 
 case "items":
     guard args.count >= 3 else { fputs("Usage: reminders-bridge items <listName>\n", stderr); exit(1) }

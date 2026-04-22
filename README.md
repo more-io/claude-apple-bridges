@@ -96,6 +96,8 @@ Access and manage Apple Reminders from Claude Code.
 ```
 reminders-bridge lists                                   List all reminder lists
 reminders-bridge create-list <name>                      Create a new list
+reminders-bridge rename-list <old> <new>                 Rename an existing list
+reminders-bridge delete-list <name>                      Delete a list (and all its reminders)
 reminders-bridge items <list>                            Show all reminders in a list
 reminders-bridge incomplete <list>                       Show only incomplete reminders
 reminders-bridge today                                   Show reminders due today (all lists)
