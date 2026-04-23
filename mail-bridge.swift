@@ -25,6 +25,34 @@ func escapeForAppleScript(_ string: String) -> String {
         .replacingOccurrences(of: "\"", with: "\\\"")
 }
 
+// Parse --since values like "7", "7d", "1w", "1m" or a YYYY-MM-DD date.
+// Returns number of days (0 = no filter). Anything unparseable yields 0.
+func parseDaysArg(_ raw: String) -> Int {
+    let trimmed = raw.trimmingCharacters(in: .whitespaces).lowercased()
+    if trimmed.isEmpty { return 0 }
+    // Bare integer or with suffix d/w/m
+    if let n = Int(trimmed) { return max(0, n) }
+    let suffix = trimmed.last!
+    let body = String(trimmed.dropLast())
+    if let n = Int(body) {
+        switch suffix {
+        case "d": return max(0, n)
+        case "w": return max(0, n * 7)
+        case "m": return max(0, n * 30)
+        default: break
+        }
+    }
+    // YYYY-MM-DD → days between then and today (never negative).
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd"
+    formatter.timeZone = .current
+    if let d = formatter.date(from: trimmed) {
+        let days = Calendar.current.dateComponents([.day], from: d, to: Date()).day ?? 0
+        return max(0, days)
+    }
+    return 0
+}
+
 // Normalize typographic quotes to ASCII equivalents for reliable matching.
 func normalizeQuotes(in string: String) -> String {
     string
@@ -141,112 +169,164 @@ func listMessages(mailbox: String, account: String, count: Int) {
     }
 }
 
-func listUnread(mailbox: String, account: String) {
-    let accountClause = account.isEmpty
-        ? "item 1 of accounts"
-        : "account \"\(escapeForAppleScript(account))\""
+// Ask Mail.app to filter unread messages itself via `whose read status is false`
+// instead of iterating and checking every message from Swift. For large INBOXes
+// this is orders of magnitude faster — each AppleScript property access is an
+// IPC round-trip, so the old approach scaled linearly with total mail count.
+// Batch-fetches subject/sender/date as lists so we pay 3 round-trips total.
+func listUnreadForAccount(mailbox: String, accountClause: String, maxResults: Int, sinceDays: Int, accountPrefix: String) -> [String] {
+    let dateFilter = sinceDays > 0
+        ? " and date received ≥ ((current date) - \(sinceDays) * days)"
+        : ""
+    let prefixLiteral = accountPrefix.isEmpty ? "" : "[\(escapeForAppleScript(accountPrefix))] "
+
     let result = runScript("""
         tell application "Mail"
             set out to {}
-            set acc to \(accountClause)
-            set msgs to messages of mailbox "\(escapeForAppleScript(mailbox))" of acc
-            set msgCount to count of msgs
-            repeat with i from 1 to msgCount
-                set m to item i of msgs
-                if read status of m is false then
+            try
+                set acc to \(accountClause)
+            on error
+                return out
+            end try
+            try
+                set unreadMsgs to (messages of mailbox "\(escapeForAppleScript(mailbox))" of acc whose read status is false\(dateFilter))
+            on error
+                return out
+            end try
+            set n to count of unreadMsgs
+            if n is 0 then return out
+            set endIdx to \(maxResults)
+            if endIdx > n then set endIdx to n
+            -- Iterate the already-filtered list. Batch property fetch via
+            -- `subject of unreadMsgs` would be fewer round-trips, but Mail's
+            -- AppleScript dictionary throws on some IMAP accounts when you
+            -- ask for a property of a whose-specifier — iterating is robust.
+            repeat with i from 1 to endIdx
+                try
+                    set m to item i of unreadMsgs
                     set d to date received of m
                     set mo to month of d as integer as string
                     set da to day of d as string
-                    set entry to subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
+                    set entry to "\(prefixLiteral)" & subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
                     set end of out to entry
-                end if
+                end try
             end repeat
             return out
         end tell
     """)
-    let messages = descriptorToStrings(result)
+    return descriptorToStrings(result)
+}
+
+func listUnread(mailbox: String, account: String, maxResults: Int, sinceDays: Int, allAccounts: Bool) {
+    let limit = maxResults > 0 ? maxResults : 50
+    let sinceNote = sinceDays > 0 ? " (last \(sinceDays)d)" : ""
+
+    if allAccounts {
+        var all: [String] = []
+        for accName in accountNames {
+            let clause = "account \"\(escapeForAppleScript(accName))\""
+            let rows = listUnreadForAccount(mailbox: mailbox, accountClause: clause, maxResults: limit, sinceDays: sinceDays, accountPrefix: accName)
+            all.append(contentsOf: rows)
+            if all.count >= limit { break }
+        }
+        let shown = Array(all.prefix(limit))
+        if shown.isEmpty {
+            print("No unread messages in '\(mailbox)' across all accounts\(sinceNote).")
+        } else {
+            print("Unread in '\(mailbox)' — all accounts (\(shown.count)):")
+            shown.forEach { print("  " + $0) }
+        }
+        return
+    }
+
+    let accountClause = account.isEmpty
+        ? "item 1 of accounts"
+        : "account \"\(escapeForAppleScript(account))\""
+    let messages = listUnreadForAccount(mailbox: mailbox, accountClause: accountClause, maxResults: limit, sinceDays: sinceDays, accountPrefix: "")
     if messages.isEmpty {
-        print("No unread messages in '\(mailbox)'.")
+        print("No unread messages in '\(mailbox)'\(sinceNote).")
     } else {
         print("Unread in '\(mailbox)' (\(messages.count)):")
         messages.forEach { print("  " + $0) }
     }
 }
 
-func searchMessages(query: String, account: String, maxResults: Int) {
+// Per-account search using a Mail.app `whose` filter. Same reasoning as
+// listUnread: let Mail.app filter internally instead of iterating every
+// message in Swift with per-property IPC calls. Supports optional
+// --unread and --since date filters stacked into the same whose clause.
+func searchMessagesForAccount(query: String, accountClause: String, maxResults: Int, onlyUnread: Bool, sinceDays: Int, accountLabel: String) -> [String] {
     let escapedQuery = escapeForAppleScript(query)
+    let unreadFilter = onlyUnread ? " and read status is false" : ""
+    let dateFilter = sinceDays > 0
+        ? " and date received ≥ ((current date) - \(sinceDays) * days)"
+        : ""
+    let prefixLiteral = accountLabel.isEmpty ? "" : "[\(escapeForAppleScript(accountLabel))] "
+
+    let result = runScript("""
+        tell application "Mail"
+            set out to {}
+            try
+                set acc to \(accountClause)
+            on error
+                return out
+            end try
+            try
+                set matches to (messages of mailbox "INBOX" of acc whose (subject contains "\(escapedQuery)" or sender contains "\(escapedQuery)")\(unreadFilter)\(dateFilter))
+            on error
+                return out
+            end try
+            set n to count of matches
+            if n is 0 then return out
+            set endIdx to \(maxResults)
+            if endIdx > n then set endIdx to n
+            repeat with i from 1 to endIdx
+                try
+                    set m to item i of matches
+                    set d to date received of m
+                    set mo to month of d as integer as string
+                    set da to day of d as string
+                    set entry to "\(prefixLiteral)" & subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
+                    set end of out to entry
+                end try
+            end repeat
+            return out
+        end tell
+    """)
+    return descriptorToStrings(result)
+}
+
+func searchMessages(query: String, account: String, maxResults: Int, onlyUnread: Bool, sinceDays: Int) {
     let limit = maxResults > 0 ? maxResults : 50
+    let filterNote = [
+        onlyUnread ? "unread" : nil,
+        sinceDays > 0 ? "last \(sinceDays)d" : nil
+    ].compactMap { $0 }.joined(separator: ", ")
+    let suffix = filterNote.isEmpty ? "" : " (\(filterNote))"
 
     if account.isEmpty {
-        // Search ALL accounts
-        var allMatches: [String] = []
+        var all: [String] = []
         for accName in accountNames {
-            let escapedAcc = escapeForAppleScript(accName)
-            let result = runScript("""
-                tell application "Mail"
-                    set out to {}
-                    set acc to account "\(escapedAcc)"
-                    set allMailboxes to {"INBOX"}
-                    repeat with mbName in allMailboxes
-                        try
-                            set msgs to messages of mailbox (mbName as text) of acc
-                            set msgCount to count of msgs
-                            repeat with i from 1 to msgCount
-                                set m to item i of msgs
-                                set subjectMatch to subject of m contains "\(escapedQuery)"
-                                set senderMatch to sender of m contains "\(escapedQuery)"
-                                if subjectMatch or senderMatch then
-                                    set d to date received of m
-                                    set mo to month of d as integer as string
-                                    set da to day of d as string
-                                    set entry to "[" & name of acc & "] " & subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
-                                    set end of out to entry
-                                    if (count of out) >= \(limit) then return out
-                                end if
-                            end repeat
-                        end try
-                    end repeat
-                    return out
-                end tell
-            """)
-            allMatches.append(contentsOf: descriptorToStrings(result))
-            if allMatches.count >= limit { break }
+            let clause = "account \"\(escapeForAppleScript(accName))\""
+            let rows = searchMessagesForAccount(query: query, accountClause: clause, maxResults: limit, onlyUnread: onlyUnread, sinceDays: sinceDays, accountLabel: accName)
+            all.append(contentsOf: rows)
+            if all.count >= limit { break }
         }
-        if allMatches.isEmpty {
-            print("No messages matching '\(query)' across all accounts.")
+        let shown = Array(all.prefix(limit))
+        if shown.isEmpty {
+            print("No messages matching '\(query)'\(suffix) across all accounts.")
         } else {
-            print("Found \(allMatches.count) message(s):")
-            allMatches.prefix(limit).forEach { print("  " + $0) }
+            print("Found \(shown.count) message(s)\(suffix):")
+            shown.forEach { print("  " + $0) }
         }
     } else {
-        let result = runScript("""
-            tell application "Mail"
-                set out to {}
-                set acc to account "\(escapeForAppleScript(account))"
-                set msgs to messages of mailbox "INBOX" of acc
-                set msgCount to count of msgs
-                repeat with i from 1 to msgCount
-                    set m to item i of msgs
-                    set subjectMatch to subject of m contains "\(escapedQuery)"
-                    set senderMatch to sender of m contains "\(escapedQuery)"
-                    if subjectMatch or senderMatch then
-                        set d to date received of m
-                        set mo to month of d as integer as string
-                        set da to day of d as string
-                        set entry to subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
-                        set end of out to entry
-                        if (count of out) >= \(limit) then return out
-                    end if
-                end repeat
-                return out
-            end tell
-        """)
-        let matches = descriptorToStrings(result)
+        let clause = "account \"\(escapeForAppleScript(account))\""
+        let matches = searchMessagesForAccount(query: query, accountClause: clause, maxResults: limit, onlyUnread: onlyUnread, sinceDays: sinceDays, accountLabel: "")
         if matches.isEmpty {
-            print("No messages matching '\(query)'.")
+            print("No messages matching '\(query)'\(suffix).")
         } else {
-            print("Found \(matches.count) message(s):")
-            matches.prefix(limit).forEach { print("  " + $0) }
+            print("Found \(matches.count) message(s)\(suffix):")
+            matches.forEach { print("  " + $0) }
         }
     }
 }
@@ -399,9 +479,9 @@ guard args.count >= 2 else {
     print("  mail-bridge accounts")
     print("  mail-bridge mailboxes [account]")
     print("  mail-bridge list [mailbox] [account] [count]")
-    print("  mail-bridge unread [mailbox] [account]")
-    print("  mail-bridge search <query> [account]")
-    print("  mail-bridge read <index> [mailbox] [account] [--mark-read]")
+    print("  mail-bridge unread [mailbox] [account] [--all] [--max N] [--since <Nd|YYYY-MM-DD>]")
+    print("  mail-bridge search <query> [max_results] [account] [--unread] [--since <Nd|YYYY-MM-DD>] [--max N]")
+    print("  mail-bridge read <index> [mailbox] [account] [--mark-read] [--raw]")
     print("  mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>] [--html-file <path>] [--force]")
     print("  mail-bridge delete <index> [mailbox] [account] [--force]")
     exit(0)
@@ -471,33 +551,78 @@ case "list":
 case "unread":
     var mailbox = defaultMailbox
     var account = ""
-    if args.count >= 3 {
-        if isAccountName(args[2]) {
-            account = args[2]
-        } else {
-            mailbox = args[2]
-            account = args.count >= 4 ? args[3] : ""
+    var unreadMax = 50
+    var unreadSinceDays = 0
+    var allAccounts = false
+    // Parse flags and strip them so positional detection below still works.
+    var unreadPositional: [String] = []
+    var i = 2
+    while i < args.count {
+        let a = args[i]
+        switch a {
+        case "--all":
+            allAccounts = true
+            i += 1
+        case "--max":
+            if i + 1 < args.count, let n = Int(args[i + 1]) { unreadMax = n }
+            i += 2
+        case "--since":
+            if i + 1 < args.count { unreadSinceDays = parseDaysArg(args[i + 1]) }
+            i += 2
+        default:
+            unreadPositional.append(a)
+            i += 1
         }
     }
-    listUnread(mailbox: mailbox, account: account)
+    if let first = unreadPositional.first {
+        if isAccountName(first) {
+            account = first
+        } else {
+            mailbox = first
+            if unreadPositional.count >= 2 { account = unreadPositional[1] }
+        }
+    }
+    listUnread(mailbox: mailbox, account: account, maxResults: unreadMax, sinceDays: unreadSinceDays, allAccounts: allAccounts)
 
 case "search":
     guard args.count >= 3 else {
-        fputs("Usage: mail-bridge search <query> [max_results] [account]\n", stderr)
+        fputs("Usage: mail-bridge search <query> [max_results] [account] [--unread] [--since <Nd|YYYY-MM-DD>]\n", stderr)
         exit(1)
     }
     var searchAccount = ""
     var searchMax = 50
-    // args after query: could be a number (max results), an account name, or both
-    if args.count >= 4 {
-        if let num = Int(args[3]) {
-            searchMax = num
-            searchAccount = args.count >= 5 ? args[4] : ""
-        } else if isAccountName(args[3]) {
-            searchAccount = args[3]
+    var searchUnread = false
+    var searchSinceDays = 0
+    // Parse flags first, then treat the remaining positional args as before.
+    var searchPositional: [String] = [args[2]]
+    var j = 3
+    while j < args.count {
+        let a = args[j]
+        switch a {
+        case "--unread":
+            searchUnread = true
+            j += 1
+        case "--max":
+            if j + 1 < args.count, let n = Int(args[j + 1]) { searchMax = n }
+            j += 2
+        case "--since":
+            if j + 1 < args.count { searchSinceDays = parseDaysArg(args[j + 1]) }
+            j += 2
+        default:
+            searchPositional.append(a)
+            j += 1
         }
     }
-    searchMessages(query: args[2], account: searchAccount, maxResults: searchMax)
+    // Legacy positional form: search <query> [max_results] [account]
+    if searchPositional.count >= 2 {
+        if let num = Int(searchPositional[1]) {
+            searchMax = num
+            if searchPositional.count >= 3 { searchAccount = searchPositional[2] }
+        } else if isAccountName(searchPositional[1]) {
+            searchAccount = searchPositional[1]
+        }
+    }
+    searchMessages(query: searchPositional[0], account: searchAccount, maxResults: searchMax, onlyUnread: searchUnread, sinceDays: searchSinceDays)
 
 case "read":
     guard args.count >= 3, let index = Int(args[2]) else {

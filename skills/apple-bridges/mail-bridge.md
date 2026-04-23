@@ -65,39 +65,52 @@ Output format: `<index>. <subject> [UNREAD] — <sender> (<month>/<day>)`
 
 ### unread
 
-List unread messages. Same smart argument detection as `list`.
+List unread messages. Filter runs inside Mail.app via a `whose` clause, so it's fast even on large INBOXes. Same smart argument detection as `list`.
 
 ```bash
-~/.claude/mail-bridge unread [mailbox|account] [account]
+~/.claude/mail-bridge unread [mailbox|account] [account] [--all] [--max N] [--since <X>]
 ```
 
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `mailbox` | No | Mailbox name (default: `INBOX`) |
 | `account` | No | Account name (default: first account) |
+| `--all` | No | Iterate every configured account, not just one |
+| `--max N` | No | Limit number of results (default: 50) |
+| `--since <X>` | No | Only messages within `Nd`/`Nw`/`Nm` or `YYYY-MM-DD` |
 
 ```bash
+# Unread in the default account's INBOX
 ~/.claude/mail-bridge unread
+
+# Specific account
 ~/.claude/mail-bridge unread "iCloud"
-~/.claude/mail-bridge unread "INBOX" "iCloud"
+
+# Every account, newest 20, last week only
+~/.claude/mail-bridge unread --all --max 20 --since 7d
 ```
 
 ### search
 
-Search messages by subject and sender in INBOX.
+Search messages by subject and sender in INBOX. Supports unread-only and date-window filtering; both are executed inside Mail.app for speed.
 
 ```bash
-~/.claude/mail-bridge search <query> [account]
+~/.claude/mail-bridge search <query> [max_results] [account] [--unread] [--since <X>] [--max N]
 ```
 
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `query` | Yes | Search term (matches subject and sender) |
-| `account` | No | Account name (default: first account) |
+| `max_results` | No | Legacy positional cap (default: 50) |
+| `account` | No | Account name (default: all accounts) |
+| `--unread` | No | Only include unread messages |
+| `--since <X>` | No | Only messages within `Nd`/`Nw`/`Nm` or `YYYY-MM-DD` |
+| `--max N` | No | Alternative to the positional `max_results` |
 
 ```bash
 ~/.claude/mail-bridge search "invoice"
 ~/.claude/mail-bridge search "invoice" "iCloud"
+~/.claude/mail-bridge search "google" --unread --since 30d --max 10
 ```
 
 ### read

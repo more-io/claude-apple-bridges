@@ -176,14 +176,26 @@ Read and send Apple Mail messages from Claude Code.
 mail-bridge accounts                                                           List all email accounts
 mail-bridge mailboxes [account]                                                List mailboxes (default: first account)
 mail-bridge list [mailbox|account] [account] [count]                           List recent messages (auto-detects account names)
-mail-bridge unread [mailbox|account] [account]                                 List unread messages (auto-detects account names)
-mail-bridge search <query> [max_results] [account]                             Search subject/sender (all accounts by default)
+mail-bridge unread [mailbox|account] [account] [--all] [--max N] [--since X]   List unread — fast (server-side filter); --all = every account
+mail-bridge search <query> [max_results] [account] [--unread] [--since X]      Search subject/sender — add --unread/--since to narrow
 mail-bridge read <index> [mailbox] [account]                                   Read message (unread status preserved)
 mail-bridge read <index> [mailbox] [account] --mark-read                       Read message and mark as read
 mail-bridge read <index> [mailbox] [account] --raw                             Read raw RFC822 source (HTML + MIME attachments)
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]          Opens compose window — user reviews and sends manually
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  Sends directly without UI
 mail-bridge delete <index> [mailbox] [account] [--force]                       Move to Trash (dry-run without --force)
+```
+
+**`--since` accepts** `Nd` / `Nw` / `Nm` (days/weeks/months), a bare integer (days), or `YYYY-MM-DD`.
+
+**Unread / search performance:** both commands push the filter into Mail.app via a `whose` clause, so Mail scans the mailbox internally instead of the bridge fetching every message's properties over IPC. On a 50k-message INBOX the old behaviour took minutes; the filtered variant returns in ~1s per account. Use `--since 7d` to narrow further on servers that index slowly.
+
+```bash
+# All unread across every account, last 7 days, cap at 20
+mail-bridge unread --all --since 7d --max 20
+
+# Only unread results when searching
+mail-bridge search "invoice" --unread --since 30d
 ```
 
 **`--raw` example — extract PDF attachments from invoice emails:**
