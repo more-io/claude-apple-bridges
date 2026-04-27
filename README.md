@@ -177,10 +177,11 @@ mail-bridge accounts                                                           L
 mail-bridge mailboxes [account]                                                List mailboxes (default: first account)
 mail-bridge list [mailbox|account] [account] [count]                           List recent messages (auto-detects account names)
 mail-bridge unread [mailbox|account] [account] [--all] [--max N] [--since X]   List unread — fast (server-side filter); --all = every account
-mail-bridge search <query> [max_results] [account] [--unread] [--since X]      Search subject/sender — add --unread/--since to narrow
+mail-bridge search <query> [max_results] [account] [--unread] [--since X]      Search subject/sender — output includes <mid:...> for each hit
 mail-bridge read <index> [mailbox] [account]                                   Read message (unread status preserved)
 mail-bridge read <index> [mailbox] [account] --mark-read                       Read message and mark as read
 mail-bridge read <index> [mailbox] [account] --raw                             Read raw RFC822 source (HTML + MIME attachments)
+mail-bridge read --mid <message-id> [account] [--mark-read] [--raw]            Read by RFC822 message-id (no listing needed) — fetches full body
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>]          Opens compose window — user reviews and sends manually
 mail-bridge send <to> <subject> <body> [/attachment] [--from <email>] --force  Sends directly without UI
 mail-bridge delete <index> [mailbox] [account] [--force]                       Move to Trash (dry-run without --force)
@@ -196,6 +197,22 @@ mail-bridge unread --all --since 7d --max 20
 
 # Only unread results when searching
 mail-bridge search "invoice" --unread --since 30d
+```
+
+**`--mid` example — fetch a specific message without knowing its INBOX index:**
+
+`search` now prints an `<mid:...>` token for every hit (RFC822 Message-ID).
+Pass it to `read --mid` to fetch the full message directly — no expensive
+`list` walk required, and Mail.app downloads the body if it was only
+partially cached.
+
+```bash
+mail-bridge search "invoice" 50 work@company.com --since 90d
+# Found 7 message(s) (last 90d):
+#   <mid:abc123@example.com> Invoice #4711 — billing@vendor.com (3/15)
+#   ...
+
+mail-bridge read --mid "abc123@example.com" work@company.com --raw > /tmp/mail.eml
 ```
 
 **`--raw` example — extract PDF attachments from invoice emails:**

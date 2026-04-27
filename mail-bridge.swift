@@ -8,8 +8,9 @@
 //   mail-bridge mailboxes [account]                    - List mailboxes (default: first account)
 //   mail-bridge list [mailbox] [account] [count]       - List recent messages (default: INBOX, 20)
 //   mail-bridge unread [mailbox] [account]             - List unread messages (default: INBOX)
-//   mail-bridge search <query> [account]               - Search subject/sender in INBOX
+//   mail-bridge search <query> [account]               - Search subject/sender in INBOX (output includes <mid:...>)
 //   mail-bridge read <index> [mailbox] [account]       - Read message by index
+//   mail-bridge read --mid <message-id> [account]      - Read by RFC822 message-id (from search output)
 //   mail-bridge send <to> <subject> <body>             - Send a new email (plain text)
 //   mail-bridge send <to> <subject> --html-file <path>  - Send HTML email from file
 //   mail-bridge delete <index> [mailbox] [account] [--force]  - Move message to Trash
@@ -286,7 +287,11 @@ func searchMessagesForAccount(query: String, accountClause: String, maxResults: 
                     set d to date received of m
                     set mo to month of d as integer as string
                     set da to day of d as string
-                    set entry to "\(prefixLiteral)" & subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
+                    set mid to ""
+                    try
+                        set mid to message id of m
+                    end try
+                    set entry to "\(prefixLiteral)<mid:" & mid & "> " & subject of m & " — " & sender of m & " (" & mo & "/" & da & ")"
                     set end of out to entry
                 end try
             end repeat
@@ -359,6 +364,52 @@ func readMessage(index: Int, mailbox: String, account: String, markRead: Bool, r
     }
     if text == "INDEX_OUT_OF_RANGE" {
         fputs("Message index \(index) is out of range.\n", stderr)
+        exit(1)
+    }
+    print(text)
+}
+
+// Read a message by its RFC822 message-id (as returned by `search`).
+// Triggers Mail.app to fetch the full body if it's only partial — the
+// `source of m` property forces a download. Searches across all mailboxes
+// of the given account (or first account if none given).
+func readMessageByMid(messageId: String, account: String, markRead: Bool, raw: Bool) {
+    let accountClause = account.isEmpty
+        ? "item 1 of accounts"
+        : "account \"\(escapeForAppleScript(account))\""
+    let markReadScript = markRead ? "set read status of m to true" : ""
+    let bodyProp = raw ? "source of m" : "content of m"
+    let escapedMid = escapeForAppleScript(messageId)
+    let result = runScript("""
+        tell application "Mail"
+            set acc to \(accountClause)
+            set foundMsg to missing value
+            repeat with mb in (every mailbox of acc)
+                try
+                    set candidates to (messages of mb whose message id is "\(escapedMid)")
+                    if (count of candidates) > 0 then
+                        set foundMsg to item 1 of candidates
+                        exit repeat
+                    end if
+                end try
+            end repeat
+            if foundMsg is missing value then
+                return "MID_NOT_FOUND"
+            end if
+            set m to foundMsg
+            set d to date received of m
+            set dateStr to date string of d & " " & time string of d
+            set msgContent to "From: " & sender of m & "\\nDate: " & dateStr & "\\nSubject: " & subject of m & "\\n---\\n" & (\(bodyProp))
+            \(markReadScript)
+            return msgContent
+        end tell
+    """)
+    guard let text = result?.stringValue else {
+        fputs("Error reading message.\n", stderr)
+        exit(1)
+    }
+    if text == "MID_NOT_FOUND" {
+        fputs("Message with id \(messageId) not found.\n", stderr)
         exit(1)
     }
     print(text)
@@ -482,6 +533,7 @@ guard args.count >= 2 else {
     print("  mail-bridge unread [mailbox] [account] [--all] [--max N] [--since <Nd|YYYY-MM-DD>]")
     print("  mail-bridge search <query> [max_results] [account] [--unread] [--since <Nd|YYYY-MM-DD>] [--max N]")
     print("  mail-bridge read <index> [mailbox] [account] [--mark-read] [--raw]")
+    print("  mail-bridge read --mid <message-id> [account] [--mark-read] [--raw]")
     print("  mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>] [--html-file <path>] [--force]")
     print("  mail-bridge delete <index> [mailbox] [account] [--force]")
     exit(0)
@@ -625,12 +677,30 @@ case "search":
     searchMessages(query: searchPositional[0], account: searchAccount, maxResults: searchMax, onlyUnread: searchUnread, sinceDays: searchSinceDays)
 
 case "read":
-    guard args.count >= 3, let index = Int(args[2]) else {
-        fputs("Usage: mail-bridge read <index> [mailbox] [account] [--mark-read] [--raw]\n", stderr)
-        exit(1)
-    }
     let markRead = args.contains("--mark-read")
     let raw = args.contains("--raw")
+    // --mid <message-id>: lookup directly via RFC822 message-id (from `search` output)
+    if let midIdx = args.firstIndex(of: "--mid"), midIdx + 1 < args.count {
+        let mid = args[midIdx + 1]
+        // optional account positional: any arg after args[1]="read" that isn't a known flag/value
+        var midAccount = ""
+        let skipNext = ["--mid"]
+        var i = 2
+        while i < args.count {
+            let a = args[i]
+            if skipNext.contains(a) { i += 2; continue }
+            if a == "--mark-read" || a == "--raw" { i += 1; continue }
+            midAccount = a
+            break
+        }
+        readMessageByMid(messageId: mid, account: midAccount, markRead: markRead, raw: raw)
+        break
+    }
+    guard args.count >= 3, let index = Int(args[2]) else {
+        fputs("Usage: mail-bridge read <index> [mailbox] [account] [--mark-read] [--raw]\n", stderr)
+        fputs("       mail-bridge read --mid <message-id> [account] [--mark-read] [--raw]\n", stderr)
+        exit(1)
+    }
     let readArgs = args.filter { $0 != "--mark-read" && $0 != "--raw" }
     let mailbox = readArgs.count >= 4 ? readArgs[3] : defaultMailbox
     let account = readArgs.count >= 5 ? readArgs[4] : ""
