@@ -429,10 +429,12 @@ func getDefaultSenderEmail() -> String {
     return result?.stringValue ?? ""
 }
 
-func sendMessage(to recipient: String, subject: String, body: String, attachmentPath: String, fromEmail: String, force: Bool, htmlFilePath: String) {
-    if !attachmentPath.isEmpty && !FileManager.default.fileExists(atPath: attachmentPath) {
-        fputs("Attachment not found: \(attachmentPath)\n", stderr)
-        exit(1)
+func sendMessage(to recipient: String, subject: String, body: String, attachmentPaths: [String], fromEmail: String, force: Bool, htmlFilePath: String) {
+    for path in attachmentPaths {
+        if !FileManager.default.fileExists(atPath: path) {
+            fputs("Attachment not found: \(path)\n", stderr)
+            exit(1)
+        }
     }
     if !htmlFilePath.isEmpty && !FileManager.default.fileExists(atPath: htmlFilePath) {
         fputs("HTML file not found: \(htmlFilePath)\n", stderr)
@@ -454,8 +456,10 @@ func sendMessage(to recipient: String, subject: String, body: String, attachment
     if !htmlFilePath.isEmpty {
         script += "\n        set html content of newMsg to (do shell script \"cat \" & quoted form of \"\(escapeForAppleScript(htmlFilePath))\")"
     }
-    if !attachmentPath.isEmpty {
-        script += "\n        make new attachment with properties {file name:POSIX file \"\(escapeForAppleScript(attachmentPath))\"}"
+    // Multiple attachments — one `make new attachment` line per file.
+    // Mail.app appends them in order, so each shows up in the compose window.
+    for path in attachmentPaths {
+        script += "\n        make new attachment with properties {file name:POSIX file \"\(escapeForAppleScript(path))\"}"
     }
     if force {
         script += """
@@ -477,11 +481,11 @@ func sendMessage(to recipient: String, subject: String, body: String, attachment
     let result = runScript(script)
     let status = result?.stringValue
     if status == "SENT" {
-        let sentAttach = attachmentPath.isEmpty ? "" : ", with attachment"
+        let sentAttach = attachmentPaths.isEmpty ? "" : ", with \(attachmentPaths.count) attachment\(attachmentPaths.count == 1 ? "" : "s")"
         let sentFrom = sender.isEmpty ? "" : " from \(sender)"
         print("Message sent to \(recipient)\(sentFrom)\(sentAttach).")
     } else if status == "OPENED" {
-        let openAttach = attachmentPath.isEmpty ? "" : " with attachment"
+        let openAttach = attachmentPaths.isEmpty ? "" : " with \(attachmentPaths.count) attachment\(attachmentPaths.count == 1 ? "" : "s")"
         print("Compose window opened\(openAttach) — review and send manually in Mail.app.")
     } else {
         fputs("Failed to compose message.\n", stderr)
@@ -534,7 +538,7 @@ guard args.count >= 2 else {
     print("  mail-bridge search <query> [max_results] [account] [--unread] [--since <Nd|YYYY-MM-DD>] [--max N]")
     print("  mail-bridge read <index> [mailbox] [account] [--mark-read] [--raw]")
     print("  mail-bridge read --mid <message-id> [account] [--mark-read] [--raw]")
-    print("  mail-bridge send <to> <subject> <body> [/path/to/attachment] [--from <email>] [--html-file <path>] [--force]")
+    print("  mail-bridge send <to> <subject> <body> [/path/to/attachment ...] [--from <email>] [--html-file <path>] [--force]")
     print("  mail-bridge delete <index> [mailbox] [account] [--force]")
     exit(0)
 }
@@ -719,14 +723,16 @@ case "send":
     // With --html-file, body is optional (only to/subject required)
     let minArgs = htmlFilePath.isEmpty ? 5 : 4
     guard args.count >= minArgs else {
-        fputs("Usage: mail-bridge send <to> <subject> [body] [/path/to/attachment] [--from <email>] [--html-file <path>] [--force]\n", stderr)
+        fputs("Usage: mail-bridge send <to> <subject> [body] [/path/to/attachment ...] [--from <email>] [--html-file <path>] [--force]\n", stderr)
         exit(1)
     }
     let body = args.count >= 5 ? args[4] : ""
     let flagArgs = Set(["--force", "--from", fromEmail, "--html-file", htmlFilePath].filter { !$0.isEmpty })
+    // Alle positionalen Args nach to/subject/body sind Attachment-Pfade
+    // (mehrere möglich, z.B. `send to subj body f1.pdf f2.pdf f3.pdf --force`).
     let positional = args.dropFirst(min(5, args.count)).filter { !flagArgs.contains($0) }
-    let attachmentPath = positional.first ?? ""
-    sendMessage(to: args[2], subject: args[3], body: body, attachmentPath: attachmentPath, fromEmail: fromEmail, force: force, htmlFilePath: htmlFilePath)
+    let attachmentPaths = Array(positional)
+    sendMessage(to: args[2], subject: args[3], body: body, attachmentPaths: attachmentPaths, fromEmail: fromEmail, force: force, htmlFilePath: htmlFilePath)
 
 case "delete":
     guard args.count >= 3, let index = Int(args[2]) else {
