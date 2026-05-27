@@ -106,6 +106,7 @@ reminders-bridge search <query>                          Search by title/notes a
 reminders-bridge add <list> <title> [notes]              Add a new reminder
 reminders-bridge set-due <list> <title> <datetime>       Set due date (YYYY-MM-DD HH:mm)
 reminders-bridge set-notes <list> <title> <notes>        Set or update notes
+reminders-bridge rename <list> <oldTitle> <newTitle>     Rename a reminder (title only, preserves notes/due)
 reminders-bridge complete <list> <title>                 Mark a reminder as complete
 reminders-bridge delete <list> <title> [--force]         Delete a reminder (dry-run without --force)
 ```

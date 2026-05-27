@@ -326,6 +326,33 @@ func setNotes(listName: String, title: String, notes: String) {
     semaphore.wait()
 }
 
+func renameItem(listName: String, oldTitle: String, newTitle: String) {
+    guard let calendar = findCalendar(named: listName) else {
+        fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
+        store.calendars(for: .reminder).sorted(by: { $0.title < $1.title }).forEach {
+            fputs("  \(normalizeQuotes(in: $0.title))\n", stderr)
+        }
+        exit(1)
+    }
+    let semaphore = DispatchSemaphore(value: 0)
+    fetchAll(from: [calendar]) { reminders in
+        guard let match = reminders.first(where: { $0.title == oldTitle && !$0.isCompleted }) else {
+            fputs("Reminder '\(oldTitle)' not found or already completed.\n", stderr)
+            semaphore.signal()
+            return
+        }
+        match.title = newTitle
+        do {
+            try store.save(match, commit: true)
+            print("Renamed: \(oldTitle) → \(newTitle)")
+        } catch {
+            fputs("Error: \(error.localizedDescription)\n", stderr)
+        }
+        semaphore.signal()
+    }
+    semaphore.wait()
+}
+
 func completeReminder(listName: String, title: String) {
     guard let calendar = findCalendar(named: listName) else {
         fputs("List '\(listName)' not found.\n\nAvailable lists:\n", stderr)
@@ -403,6 +430,7 @@ guard args.count >= 2 else {
     print("  reminders-bridge add <listName> <title> [notes]")
     print("  reminders-bridge set-due <listName> <title> <\"YYYY-MM-DD HH:mm\">")
     print("  reminders-bridge set-notes <listName> <title> <notes>")
+    print("  reminders-bridge rename <listName> <oldTitle> <newTitle>")
     print("  reminders-bridge complete <listName> <title>")
     print("  reminders-bridge delete <listName> <title>")
     exit(0)
@@ -470,6 +498,10 @@ case "set-due":
 case "set-notes":
     guard args.count >= 5 else { fputs("Usage: reminders-bridge set-notes <listName> <title> <notes>\n", stderr); exit(1) }
     setNotes(listName: args[2], title: args[3], notes: args[4])
+
+case "rename":
+    guard args.count >= 5 else { fputs("Usage: reminders-bridge rename <listName> <oldTitle> <newTitle>\n", stderr); exit(1) }
+    renameItem(listName: args[2], oldTitle: args[3], newTitle: args[4])
 
 case "complete":
     guard args.count >= 4 else { fputs("Usage: reminders-bridge complete <listName> <title>\n", stderr); exit(1) }
