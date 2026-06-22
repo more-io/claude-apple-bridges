@@ -47,7 +47,7 @@ install-tmux:
 
 install-reminders:
 	@echo "→ Building reminders-bridge..."
-	@printf '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>NSRemindersUsageDescription</key><string>Claude Code needs access to Reminders to manage tasks.</string></dict></plist>' > $(PLIST_DIR)/reminders-info.plist
+	@printf '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>NSRemindersFullAccessUsageDescription</key><string>Claude Code needs access to Reminders to manage tasks.</string></dict></plist>' > $(PLIST_DIR)/reminders-info.plist
 	swiftc reminders-bridge.swift -o $(INSTALL_DIR)/reminders-bridge \
 	  -framework EventKit \
 	  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker $(PLIST_DIR)/reminders-info.plist

@@ -316,7 +316,7 @@ cat > /tmp/reminders-info.plist << 'EOF'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>NSRemindersUsageDescription</key>
+    <key>NSRemindersFullAccessUsageDescription</key>
     <string>Claude Code needs access to Reminders to manage tasks.</string>
 </dict>
 </plist>
