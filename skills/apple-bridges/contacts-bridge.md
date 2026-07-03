@@ -65,25 +65,41 @@ Add a new contact.
 
 ### update
 
-Update a contact's phone or email.
+Add a phone or email to a contact. **Appends** — existing values are kept.
 
 ```bash
-~/.claude/contacts-bridge update <name> phone <value>
-~/.claude/contacts-bridge update <name> email <value>
+~/.claude/contacts-bridge update <name> phone <value> [label]
+~/.claude/contacts-bridge update <name> email <value> [label]
 ```
 
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `name` | Yes | Contact name |
-| `phone`/`email` | Yes | Field to update |
-| `value` | Yes | New value |
+| `phone`/`email` | Yes | Field to add to |
+| `value` | Yes | Value to append |
+| `label` | No | `home`/`work`/`mobile`/`main`/`other` or a custom label. Default: `home` (email), `mobile` (phone) |
 
 ```bash
 ~/.claude/contacts-bridge update "Alex Schmidt" phone "+49 987 654321"
-~/.claude/contacts-bridge update "Alex Schmidt" email "alex.new@example.com"
+~/.claude/contacts-bridge update "Alex Schmidt" email "alex.new@example.com" work
 ```
 
-**Note:** Update replaces the existing phone/email — it does not append.
+**Note:** Appends without touching existing values, so a contact keeps all its
+numbers/addresses. Idempotent — a value already present (case-insensitive for
+email) is a no-op. To change or drop a value, use `remove` (below).
+
+### remove
+
+Remove every phone or email matching a value from a contact. Match is
+whitespace-insensitive for phone, case-insensitive for email.
+
+```bash
+~/.claude/contacts-bridge remove <name> phone|email <value>
+```
+
+```bash
+~/.claude/contacts-bridge remove "Alex Schmidt" email "alex.old@example.com"
+```
 
 ### delete
 

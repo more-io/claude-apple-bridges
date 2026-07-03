@@ -7,8 +7,9 @@
 //   contacts-bridge search <query>                                  - Search by name, email or phone
 //   contacts-bridge show <name>                                     - Show full details for a contact
 //   contacts-bridge add <firstName> <lastName> [phone] [email]      - Add a new contact
-//   contacts-bridge update <name> phone <value>                     - Update phone number
-//   contacts-bridge update <name> email <value>                     - Update email address
+//   contacts-bridge update <name> phone <value> [label]            - Add a phone (append, keeps existing)
+//   contacts-bridge update <name> email <value> [label]            - Add an email (append, keeps existing)
+//   contacts-bridge remove <name> phone|email <value>               - Remove a matching phone/email
 //   contacts-bridge delete <name> [--force]                         - Delete a contact
 //   contacts-bridge birthdays-today                                 - Contacts with birthday today
 //   contacts-bridge birthdays-upcoming <days>                       - Upcoming birthdays in N days
@@ -123,7 +124,39 @@ func addContact(firstName: String, lastName: String, phone: String?, email: Stri
     }
 }
 
-func updateContact(name: String, field: String, value: String) {
+/// Maps a user-supplied label to a Contacts email label, passing custom
+/// labels through unchanged. Returns nil when no label was given.
+func mapEmailLabel(_ label: String?) -> String? {
+    guard let raw = label else { return nil }
+    switch raw.lowercased() {
+    case "home": return CNLabelHome
+    case "work": return CNLabelWork
+    case "other": return CNLabelOther
+    default: return raw
+    }
+}
+
+/// Maps a user-supplied label to a Contacts phone label, passing custom
+/// labels through unchanged. Returns nil when no label was given.
+func mapPhoneLabel(_ label: String?) -> String? {
+    guard let raw = label else { return nil }
+    switch raw.lowercased() {
+    case "mobile", "cell": return CNLabelPhoneNumberMobile
+    case "home": return CNLabelHome
+    case "work": return CNLabelWork
+    case "main": return CNLabelPhoneNumberMain
+    case "other": return CNLabelOther
+    default: return raw
+    }
+}
+
+/// Appends a phone or email to a contact, PRESERVING existing values.
+/// Idempotent: a value already present (case-insensitive for email,
+/// whitespace-insensitive for phone) is a no-op. Optional label defaults to
+/// mobile (phone) / home (email). This intentionally never replaces the whole
+/// list — the previous replace-semantics silently dropped a contact's other
+/// numbers/addresses.
+func updateContact(name: String, field: String, value: String, label: String?) {
     do {
         let contacts = try findContacts(matching: name)
         guard let contact = contacts.first else {
@@ -133,9 +166,28 @@ func updateContact(name: String, field: String, value: String) {
 
         switch field.lowercased() {
         case "phone":
-            mutable.phoneNumbers = [CNLabeledValue(label: CNLabelPhoneNumberMobile, value: CNPhoneNumber(stringValue: value))]
+            let normalized = value.filter { !$0.isWhitespace }
+            let exists = mutable.phoneNumbers.contains {
+                $0.value.stringValue.filter { !$0.isWhitespace } == normalized
+            }
+            if exists {
+                print("Phone already present for \(fullName(contact)): \(value)")
+                return
+            }
+            let phoneLabel = mapPhoneLabel(label) ?? CNLabelPhoneNumberMobile
+            mutable.phoneNumbers.append(
+                CNLabeledValue(label: phoneLabel, value: CNPhoneNumber(stringValue: value)))
         case "email":
-            mutable.emailAddresses = [CNLabeledValue(label: CNLabelWork, value: value as NSString)]
+            let exists = mutable.emailAddresses.contains {
+                ($0.value as String).lowercased() == value.lowercased()
+            }
+            if exists {
+                print("Email already present for \(fullName(contact)): \(value)")
+                return
+            }
+            let emailLabel = mapEmailLabel(label) ?? CNLabelHome
+            mutable.emailAddresses.append(
+                CNLabeledValue(label: emailLabel, value: value as NSString))
         default:
             fputs("Unknown field '\(field)'. Use 'phone' or 'email'.\n", stderr); exit(1)
         }
@@ -143,7 +195,49 @@ func updateContact(name: String, field: String, value: String) {
         let saveRequest = CNSaveRequest()
         saveRequest.update(mutable)
         try store.execute(saveRequest)
-        print("Updated \(field) for \(fullName(contact)): \(value)")
+        print("Added \(field) for \(fullName(contact)): \(value)")
+    } catch {
+        fputs("Error: \(error.localizedDescription)\n", stderr); exit(1)
+    }
+}
+
+/// Removes every phone or email matching the given value from a contact.
+/// Match is whitespace-insensitive for phone, case-insensitive for email.
+func removeContactField(name: String, field: String, value: String) {
+    do {
+        let contacts = try findContacts(matching: name)
+        guard let contact = contacts.first else {
+            fputs("Contact '\(name)' not found.\n", stderr); exit(1)
+        }
+        guard let mutable = contact.mutableCopy() as? CNMutableContact else { exit(1) }
+
+        var removed = 0
+        switch field.lowercased() {
+        case "phone":
+            let normalized = value.filter { !$0.isWhitespace }
+            let before = mutable.phoneNumbers.count
+            mutable.phoneNumbers.removeAll {
+                $0.value.stringValue.filter { !$0.isWhitespace } == normalized
+            }
+            removed = before - mutable.phoneNumbers.count
+        case "email":
+            let before = mutable.emailAddresses.count
+            mutable.emailAddresses.removeAll {
+                ($0.value as String).lowercased() == value.lowercased()
+            }
+            removed = before - mutable.emailAddresses.count
+        default:
+            fputs("Unknown field '\(field)'. Use 'phone' or 'email'.\n", stderr); exit(1)
+        }
+
+        if removed == 0 {
+            print("No matching \(field) '\(value)' found for \(fullName(contact)).")
+            return
+        }
+        let saveRequest = CNSaveRequest()
+        saveRequest.update(mutable)
+        try store.execute(saveRequest)
+        print("Removed \(removed) \(field)(s) '\(value)' from \(fullName(contact))")
     } catch {
         fputs("Error: \(error.localizedDescription)\n", stderr); exit(1)
     }
@@ -259,8 +353,9 @@ guard args.count >= 2 else {
     print("  contacts-bridge search <query>")
     print("  contacts-bridge show <name>")
     print("  contacts-bridge add <firstName> <lastName> [phone] [email]")
-    print("  contacts-bridge update <name> phone <value>")
-    print("  contacts-bridge update <name> email <value>")
+    print("  contacts-bridge update <name> phone <value> [label]   (append, keeps existing)")
+    print("  contacts-bridge update <name> email <value> [label]   (append, keeps existing)")
+    print("  contacts-bridge remove <name> phone|email <value>")
     print("  contacts-bridge delete <name> [--force]")
     print("  contacts-bridge birthdays-today")
     print("  contacts-bridge birthdays-upcoming <days>")
@@ -299,8 +394,13 @@ case "add":
     addContact(firstName: args[2], lastName: args[3], phone: phone, email: email)
 
 case "update":
-    guard args.count >= 5 else { fputs("Usage: contacts-bridge update <name> phone|email <value>\n", stderr); exit(1) }
-    updateContact(name: args[2], field: args[3], value: args[4])
+    guard args.count >= 5 else { fputs("Usage: contacts-bridge update <name> phone|email <value> [label]\n", stderr); exit(1) }
+    let updateLabel = args.count >= 6 ? args[5] : nil
+    updateContact(name: args[2], field: args[3], value: args[4], label: updateLabel)
+
+case "remove":
+    guard args.count >= 5 else { fputs("Usage: contacts-bridge remove <name> phone|email <value>\n", stderr); exit(1) }
+    removeContactField(name: args[2], field: args[3], value: args[4])
 
 case "delete":
     guard args.count >= 3 else { fputs("Usage: contacts-bridge delete <name> [--force]\n", stderr); exit(1) }

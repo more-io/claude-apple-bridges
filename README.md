@@ -134,8 +134,9 @@ Search and manage Apple Contacts from Claude Code.
 contacts-bridge search <query>                                Search by name, email or phone
 contacts-bridge show <name>                                   Show full details for a contact
 contacts-bridge add <firstName> <lastName> [phone] [email]    Add a new contact
-contacts-bridge update <name> phone <value>                   Update phone number
-contacts-bridge update <name> email <value>                   Update email address
+contacts-bridge update <name> phone <value> [label]           Add a phone (append, keeps existing)
+contacts-bridge update <name> email <value> [label]           Add an email (append, keeps existing)
+contacts-bridge remove <name> phone|email <value>             Remove a matching phone/email
 contacts-bridge delete <name> [--force]                       Delete a contact (dry-run without --force)
 contacts-bridge birthdays-today                               Contacts with birthday today
 contacts-bridge birthdays-upcoming <days>                     Upcoming birthdays in next N days
