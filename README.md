@@ -301,6 +301,8 @@ messages-bridge send "+491701234567" "On my way"
 
 > **Note:** `send` delivers immediately and asks nothing. Any "confirm before sending" rule belongs in your Claude Code instructions, not in the tool.
 
+**If `send` fails with `AppleEvent timed out (-1712)`:** Messages.app's scripting interface is wedged, not missing. The giveaway is that even a trivial script such as `tell application "Messages" to get name of every account` hangs. Quit Messages.app and reopen it — sending works again immediately.
+
 ---
 
 ## Setup

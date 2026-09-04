@@ -1,6 +1,6 @@
 ---
 name: apple-bridges
-description: Use this skill whenever the user asks about Apple apps — Reminders, Calendar, Contacts, Notes, Mail, or tmux sessions. This includes creating/completing reminders, checking/adding calendar events, looking up contacts, reading/writing notes, sending/reading email, and capturing tmux session content. Also use this skill when the user mentions tasks, todos, scheduling, birthdays, free time slots, or end-of-day summaries. The bridges are CLI tools installed at ~/.claude/ that give Claude Code native access to these Apple apps on macOS.
+description: Use this skill whenever the user asks about Apple apps — Reminders, Calendar, Contacts, Notes, Mail, Messages (iMessage/SMS), or tmux sessions. This includes creating/completing reminders, checking/adding calendar events, looking up contacts, reading/writing notes, sending/reading email, reading/sending iMessages and texts, and capturing tmux session content. Also use this skill when the user mentions tasks, todos, scheduling, birthdays, free time slots, or end-of-day summaries. The bridges are CLI tools installed at ~/.claude/ that give Claude Code native access to these Apple apps on macOS.
 ---
 
 # Apple Bridges
@@ -17,6 +17,7 @@ Swift CLI tools at `~/.claude/` that give Claude Code native access to Apple app
 | [notes-bridge](notes-bridge.md) | `~/.claude/notes-bridge` | Read/write Apple Notes — create, search, append |
 | [mail-bridge](mail-bridge.md) | `~/.claude/mail-bridge` | Read/send Apple Mail — inbox, unread, compose |
 | [tmux-bridge](tmux-bridge.md) | `~/.claude/tmux-bridge` | Read/write tmux sessions — panes, snapshots, send keystrokes |
+| [messages-bridge](messages-bridge.md) | `~/.claude/messages-bridge` | Read/send Apple Messages — chats, unread, search, send |
 
 **Read the detail file for the bridge you need** — each contains full command syntax, all parameters, and usage examples.
 
@@ -65,6 +66,7 @@ Each bridge requires macOS permission on first use:
 | notes-bridge | Automation (Notes.app) | Privacy & Security > Automation |
 | mail-bridge | Automation (Mail.app) | Privacy & Security > Automation |
 | tmux-bridge | None (uses tmux CLI) | — |
+| messages-bridge | Full Disk Access (read) + Automation (Messages.app) | Privacy & Security > Full Disk Access / Automation |
 
 ### Allowed Tools Configuration
 
@@ -79,7 +81,8 @@ Add to `.claude/settings.local.json`:
       "Bash(~/.claude/contacts-bridge:*)",
       "Bash(~/.claude/notes-bridge:*)",
       "Bash(~/.claude/mail-bridge:*)",
-      "Bash(~/.claude/tmux-bridge:*)"
+      "Bash(~/.claude/tmux-bridge:*)",
+      "Bash(~/.claude/messages-bridge:*)"
     ]
   }
 }
