@@ -9,6 +9,7 @@
 #   make install-notes     Install only notes-bridge
 #   make install-mail      Install only mail-bridge
 #   make install-tmux      Install only tmux-bridge
+#   make install-messages  Install only messages-bridge
 #   make install-skills    Install skills to ~/.claude/skills/apple-bridges/
 #   make test              Run smoke tests (triggers permission dialogs on first run)
 #   make clean             Remove compiled binaries from ~/.claude/
@@ -17,11 +18,11 @@ INSTALL_DIR := $(HOME)/.claude
 PLIST_DIR   := /tmp
 CODESIGN_IDENTITY ?= -
 
-.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux install-skills test clean
+.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux install-messages install-skills test clean
 
 SKILLS_DIR := $(INSTALL_DIR)/skills/apple-bridges
 
-install: install-reminders install-contacts install-calendar install-notes install-mail install-tmux install-skills
+install: install-reminders install-contacts install-calendar install-notes install-mail install-tmux install-messages install-skills
 	@echo ""
 	@echo "✅ All bridges installed to $(INSTALL_DIR)"
 	@echo ""
@@ -32,12 +33,22 @@ install: install-reminders install-contacts install-calendar install-notes insta
 	@echo "  ~/.claude/notes-bridge accounts"
 	@echo "  ~/.claude/mail-bridge accounts"
 	@echo "  ~/.claude/tmux-bridge sessions"
+	@echo "  ~/.claude/messages-bridge chats   (needs Full Disk Access)"
 
 install-skills:
 	@echo "→ Installing skills..."
 	@mkdir -p $(SKILLS_DIR)
 	@cp skills/apple-bridges/*.md $(SKILLS_DIR)/
 	@echo "  ✓ Skills installed to $(SKILLS_DIR)"
+
+install-messages:
+	@echo "→ Building messages-bridge..."
+	@printf '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>NSContactsUsageDescription</key><string>Claude Code needs access to Contacts to show sender names for messages.</string></dict></plist>' > $(PLIST_DIR)/messages-info.plist
+	swiftc -O messages-bridge.swift -o $(INSTALL_DIR)/messages-bridge \
+	  -framework Contacts -lsqlite3 \
+	  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker $(PLIST_DIR)/messages-info.plist
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.messages-bridge $(INSTALL_DIR)/messages-bridge
+	@echo "  ✓ messages-bridge installed (reading chat.db needs Full Disk Access)"
 
 install-tmux:
 	@echo "→ Building tmux-bridge..."

@@ -276,6 +276,31 @@ tmux-bridge write main:0.0 "partial input" --no-enter
 Typical workflow: run your work in named tmux sessions, then ask Claude at the end of the day:
 > *"Read tmux-bridge snapshot and summarize what I worked on today."*
 
+### messages-bridge
+Read and send Apple Messages (iMessage / SMS) from Claude Code.
+
+```
+messages-bridge chats [count]               List recent conversations (default: 20)
+messages-bridge unread [count]              List unread incoming messages (default: 20)
+messages-bridge list <chat|handle> [count]  List messages of a conversation (default: 20)
+messages-bridge search <query> [count]      Search message bodies (default: 20)
+messages-bridge read <chat|handle> [count]  Full untruncated messages (default: 10)
+messages-bridge send <handle> <text>        Send a message (iMessage, SMS fallback)
+```
+
+A conversation can be addressed by phone number, email address, group name, or contact name:
+
+```bash
+messages-bridge list "Anna Muller" 10
+messages-bridge send "+491701234567" "On my way"
+```
+
+**How it reads:** straight from `~/Library/Messages/chat.db`, opened read-only. Apple stores the body of many newer messages *only* as an archived `NSAttributedString` in `attributedBody` and leaves `text` empty — about a quarter of the rows here. The bridge decodes that typedstream, so those messages do not come back blank. Sender names are resolved through Contacts; unknown handles are shown as-is.
+
+**Permissions:** reading needs **Full Disk Access** for the terminal; sending needs **Automation -> Messages**. The Automation prompt appears on first send, but Full Disk Access must be granted manually in System Settings before the first read.
+
+> **Note:** `send` delivers immediately and asks nothing. Any "confirm before sending" rule belongs in your Claude Code instructions, not in the tool.
+
 ---
 
 ## Setup
@@ -305,6 +330,7 @@ make install-calendar
 make install-contacts
 make install-notes
 make install-mail
+make install-messages
 ```
 
 <details>
@@ -380,9 +406,12 @@ Run each binary once from Terminal to trigger the macOS permission dialog:
 ~/.claude/contacts-bridge search "test"
 ~/.claude/notes-bridge accounts
 ~/.claude/mail-bridge accounts
+~/.claude/messages-bridge chats
 ```
 
 Then approve in **System Settings → Privacy & Security → Reminders / Calendars / Contacts / Automation**. Notes and Mail access is granted automatically via AppleScript on first use.
+
+`messages-bridge` additionally needs **Full Disk Access** for your terminal (to read `chat.db`) — that one is not prompted for, grant it in **System Settings → Privacy & Security → Full Disk Access** and restart the terminal.
 
 ### 3. Add to Claude Code allowed tools
 
@@ -397,7 +426,8 @@ Add the bridges to your **global** `~/.claude/settings.json` so they work across
       "Bash(~/.claude/contacts-bridge*)",
       "Bash(~/.claude/notes-bridge*)",
       "Bash(~/.claude/mail-bridge*)",
-      "Bash(~/.claude/tmux-bridge*)"
+      "Bash(~/.claude/tmux-bridge*)",
+      "Bash(~/.claude/messages-bridge*)"
     ]
   }
 }
