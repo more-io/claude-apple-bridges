@@ -134,6 +134,24 @@ show as a message.
 There is no dry-run and no `--force`; any confirmation rule belongs in the
 calling Claude instructions.
 
+Signature: `send <handle> <text> [/path/to/attachment ...]`, positional like
+mail-bridge. The buddy is resolved once into a variable, then the text is sent
+(when non-empty), then one `send POSIX file` per attachment — Messages delivers
+each attachment as its own message, which is the app's behaviour, not a choice
+here. `""` as the text sends files only. The SMS fallback branch carries the
+same body with its own buddy variable.
+
+Paths are expanded (tilde and relative become absolute, which `POSIX file`
+requires) and every one is checked for existence and for not being a directory
+BEFORE the first send — a typo in the third path must not leave the first two
+already delivered, since nothing can unsend them.
+
+**The one place people trip:** `<text>` is a SINGLE argument. Multi-word text
+must be quoted, otherwise the extra words are read as file paths and the call
+aborts with "attachment not found". This is deliberate — it is what makes
+trailing paths unambiguous, and it fails loudly rather than silently
+reinterpreting the message.
+
 If sending fails with `AppleEvent timed out (-1712)`, Messages.app's scripting
 interface is wedged rather than missing. The giveaway is that even
 `tell application "Messages" to get name of every account` hangs. Quitting and
