@@ -17,7 +17,7 @@ Swift CLI tools at `~/.claude/` that give Claude Code native access to Apple app
 | [notes-bridge](notes-bridge.md) | `~/.claude/notes-bridge` | Read/write Apple Notes — create, search, append |
 | [mail-bridge](mail-bridge.md) | `~/.claude/mail-bridge` | Read/send Apple Mail — inbox, unread, compose |
 | [tmux-bridge](tmux-bridge.md) | `~/.claude/tmux-bridge` | Read/write tmux sessions — panes, snapshots, send keystrokes |
-| [messages-bridge](messages-bridge.md) | `~/.claude/messages-bridge` | Read/send Apple Messages — chats, unread, search, send |
+| [messages-bridge](messages-bridge.md) | `~/.claude/messages-bridge` | Read/send Apple Messages — chats, unread, search, send text and files |
 
 **Read the detail file for the bridge you need** — each contains full command syntax, all parameters, and usage examples.
 

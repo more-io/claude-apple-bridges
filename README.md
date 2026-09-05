@@ -285,7 +285,8 @@ messages-bridge unread [count]              List unread incoming messages (defau
 messages-bridge list <chat|handle> [count]  List messages of a conversation (default: 20)
 messages-bridge search <query> [count]      Search message bodies (default: 20)
 messages-bridge read <chat|handle> [count]  Full untruncated messages (default: 10)
-messages-bridge send <handle> <text>        Send a message (iMessage, SMS fallback)
+messages-bridge send <handle> <text> [/path/to/attachment ...]
+                                            Send a message, optionally with files
 ```
 
 A conversation can be addressed by phone number, email address, group name, or contact name:
@@ -293,6 +294,12 @@ A conversation can be addressed by phone number, email address, group name, or c
 ```bash
 messages-bridge list "Anna Muller" 10
 messages-bridge send "+491701234567" "On my way"
+
+# with files — each is delivered as its own message after the text
+messages-bridge send "+491701234567" "Here are the documents" ~/Documents/offer.pdf ~/Documents/terms.pdf
+
+# files only, no text
+messages-bridge send "ben@example.com" "" ~/Pictures/floorplan.png
 ```
 
 **How it reads:** straight from `~/Library/Messages/chat.db`, opened read-only. Apple stores the body of many newer messages *only* as an archived `NSAttributedString` in `attributedBody` and leaves `text` empty — about a quarter of the rows here. The bridge decodes that typedstream, so those messages do not come back blank. Sender names are resolved through Contacts; unknown handles are shown as-is.

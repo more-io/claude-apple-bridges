@@ -10,7 +10,8 @@
 //   messages-bridge list <chat|handle> [count]  - Recent messages of a conversation (default: 20)
 //   messages-bridge search <query> [count]      - Search message bodies (default: 20)
 //   messages-bridge read <chat|handle> [count]  - Like list, but full untruncated text (default: 10)
-//   messages-bridge send <handle> <text>        - Send a message (iMessage, SMS fallback)
+//   messages-bridge send <handle> <text> [/path/to/attachment ...]
+//                                               - Send a message, optionally with files (iMessage, SMS fallback)
 //
 // Permissions: Full Disk Access for the terminal (to read chat.db) and
 // Automation → Messages (to send).
@@ -409,7 +410,51 @@ func asEscape(_ s: String) -> String {
     s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
 }
 
-func cmdSend(to rawHandle: String, text: String) {
+/// Turns a user-supplied path into the absolute form `POSIX file` requires —
+/// tilde and relative paths would otherwise be handed to Messages verbatim.
+func absolutePath(_ path: String) -> String {
+    let expanded = NSString(string: path).expandingTildeInPath
+    if expanded.hasPrefix("/") { return expanded }
+    return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        .appendingPathComponent(expanded).standardized.path
+}
+
+/// Builds the send lines for one buddy variable: the text first (when there is
+/// any), then one `send` per file. Messages delivers each as its own message.
+func sendLines(buddy: String, text: String, attachments: [String]) -> String {
+    var lines: [String] = []
+    if !text.isEmpty {
+        lines.append("            send \"\(asEscape(text))\" to \(buddy)")
+    }
+    for path in attachments {
+        lines.append("            send POSIX file \"\(asEscape(path))\" to \(buddy)")
+    }
+    return lines.joined(separator: "\n")
+}
+
+func cmdSend(to rawHandle: String, text: String, attachments rawAttachments: [String] = []) {
+    // Resolve and check every file BEFORE talking to Messages: a failure halfway
+    // through would leave some files sent and no way to take them back.
+    var attachments: [String] = []
+    for path in rawAttachments {
+        let full = absolutePath(path)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: full, isDirectory: &isDirectory) else {
+            fputs("Error: attachment not found: \(path)\n", stderr)
+            fputs("Note: <text> must be a single argument — quote it if it contains spaces.\n", stderr)
+            exit(1)
+        }
+        if isDirectory.boolValue {
+            fputs("Error: attachment is a directory, not a file: \(path)\n", stderr)
+            exit(1)
+        }
+        attachments.append(full)
+    }
+    guard !text.isEmpty || !attachments.isEmpty else {
+        fputs("Error: nothing to send — provide a text, one or more files, or both.\n", stderr)
+        exit(1)
+    }
+
     var handle = rawHandle
     // A bare name is only accepted when it maps to exactly one address.
     if !handle.contains("@"), handle.rangeOfCharacter(from: .decimalDigits) == nil {
@@ -437,16 +482,17 @@ func cmdSend(to rawHandle: String, text: String) {
 
     let script = """
     tell application "Messages"
-        set theText to "\(asEscape(text))"
         set theHandle to "\(asEscape(handle))"
         try
             set svc to 1st service whose service type = iMessage
-            send theText to buddy theHandle of svc
+            set theBuddy to buddy theHandle of svc
+    \(sendLines(buddy: "theBuddy", text: text, attachments: attachments))
             return "iMessage"
         on error iMessageError
             try
                 set smsSvc to 1st service whose service type = SMS
-                send theText to buddy theHandle of smsSvc
+                set smsBuddy to buddy theHandle of smsSvc
+    \(sendLines(buddy: "smsBuddy", text: text, attachments: attachments))
                 return "SMS"
             on error smsError
                 error "iMessage: " & iMessageError & " / SMS: " & smsError
@@ -472,7 +518,12 @@ func cmdSend(to rawHandle: String, text: String) {
         exit(1)
     }
     let service = result.stringValue ?? "unknown service"
-    print("Sent via \(service) to \(handle): \(oneLine(text, 60))")
+    var summary = text.isEmpty ? "" : oneLine(text, 60)
+    if !attachments.isEmpty {
+        let files = "\(attachments.count) file\(attachments.count == 1 ? "" : "s")"
+        summary = summary.isEmpty ? files : "\(summary) + \(files)"
+    }
+    print("Sent via \(service) to \(handle): \(summary)")
 }
 
 // MARK: - Entry point
@@ -486,7 +537,8 @@ guard args.count > 1 else {
       messages-bridge list <chat|handle> [count]  List messages of a conversation (default: 20)
       messages-bridge search <query> [count]      Search message bodies (default: 20)
       messages-bridge read <chat|handle> [count]  Full untruncated messages (default: 10)
-      messages-bridge send <handle> <text>        Send a message (iMessage, SMS fallback)
+      messages-bridge send <handle> <text> [/path/to/attachment ...]
+                                                  Send a message, optionally with files
     """)
     exit(0)
 }
@@ -513,10 +565,11 @@ case "search":
     cmdSearch(openDB(), needle: args[2], count: args.count > 3 ? Int(args[3]) ?? 20 : 20)
 case "send":
     guard args.count > 3 else {
-        fputs("Usage: messages-bridge send <handle> <text>\n", stderr)
+        fputs("Usage: messages-bridge send <handle> <text> [/path/to/attachment ...]\n", stderr)
         exit(1)
     }
-    cmdSend(to: args[2], text: args[3...].joined(separator: " "))
+    // Positional like mail-bridge: text is ONE argument, everything after it is a file.
+    cmdSend(to: args[2], text: args[3], attachments: args.count > 4 ? Array(args[4...]) : [])
 default:
     fputs("Unknown command: \(args[1])\nRun messages-bridge without arguments for usage.\n", stderr)
     exit(1)

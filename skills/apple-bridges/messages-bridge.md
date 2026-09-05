@@ -108,19 +108,27 @@ Same selection as `list`, but prints each message in full instead of truncating 
 Send a message. Tries iMessage first and falls back to SMS.
 
 ```bash
-~/.claude/messages-bridge send <handle> <text>
+~/.claude/messages-bridge send <handle> <text> [/path/to/attachment ...]
 ```
 
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `handle` | Yes | Phone number, email address, or a contact name that resolves to exactly one address |
-| `text` | Yes | Message body |
+| `text` | Yes | Message body. Pass `""` to send files without a text. **Must be a single argument** — quote it if it contains spaces. |
+| `attachment` | No | One or more file paths. `~` and relative paths are expanded. |
 
 ```bash
 ~/.claude/messages-bridge send "+491701234567" "On my way"
-~/.claude/messages-bridge send "ben@example.com" "Sending the file now"
 ~/.claude/messages-bridge send "Anna Muller" "Running ten minutes late"
+
+# with files — the text goes first, then one message per file
+~/.claude/messages-bridge send "+491701234567" "Here are the documents" ~/Documents/offer.pdf ~/Documents/terms.pdf
+
+# files only
+~/.claude/messages-bridge send "ben@example.com" "" ~/Pictures/floorplan.png
 ```
+
+Every file is checked for existence **before** anything is sent, so a typo in the third path cannot leave the first two already delivered. Messages sends each attachment as its own message — that is how Messages.app works, not a choice of this bridge.
 
 A contact name is only accepted when it maps to a single address; if the contact has several, the bridge lists them and exits rather than guessing.
 
@@ -168,3 +176,4 @@ Then ask Claude: "Summarize my unread messages and tell me which ones need an an
 | `send` fails with `AppleEvent timed out (-1712)` | Messages.app's scripting interface is wedged. Quit Messages.app and reopen it; sending works again immediately. A telltale sign is that even a trivial script like `tell application "Messages" to get name of every account` hangs. |
 | Names show as raw phone numbers | No Contacts permission. Run any command once from Terminal and approve the prompt, or grant it under Privacy & Security → Contacts. |
 | A message shows as `￼` | That row is an attachment (image, link preview) with no text body. |
+| `Error: attachment not found` on a path you can see | The text was not quoted, so a word of it was read as a file path. `<text>` must be one argument. |
