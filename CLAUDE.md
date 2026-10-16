@@ -66,6 +66,10 @@ EOF
 swiftc -O messages-bridge.swift -o ~/.claude/messages-bridge -framework Contacts -lsqlite3 \
   -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker /tmp/messages-info.plist
 codesign --force --sign - --identifier com.claude.messages-bridge ~/.claude/messages-bridge
+
+# MCP server for Claude Desktop (no plist needed, optional)
+swiftc -O apple-bridges-mcp.swift -o ~/.claude/apple-bridges-mcp
+codesign --force --sign - --identifier com.claude.apple-bridges-mcp ~/.claude/apple-bridges-mcp
 ```
 
 ## Quick Smoke Test
@@ -82,6 +86,7 @@ codesign --force --sign - --identifier com.claude.messages-bridge ~/.claude/mess
 ~/.claude/mail-bridge accounts
 ~/.claude/tmux-bridge sessions
 ~/.claude/messages-bridge chats 5
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | ~/.claude/apple-bridges-mcp
 ```
 
 ## Branching
@@ -157,6 +162,51 @@ interface is wedged rather than missing. The giveaway is that even
 `tell application "Messages" to get name of every account` hangs. Quitting and
 reopening Messages.app fixes it immediately — no code change involved.
 
+## apple-bridges-mcp: MCP Server for Claude Desktop
+
+An stdio MCP server in one file, Foundation only. It implements `initialize`,
+`ping`, `tools/list`, and `tools/call`, and nothing else. Each installed bridge
+is a `<bridge>_read` and a `<bridge>_write` tool. A tool passes `args` to the
+binary unchanged, but only when `args[0]` is a command on its side, so the
+bridge CLIs stay the single source of truth for everything else.
+
+- **Read and write are separate tools.** Claude Desktop approves a whole tool,
+  so "always allow" on a single tool would cover every command. Each row in
+  `bridges` lists its read and its write commands. A command on neither side is
+  refused, so a new bridge command stays unreachable until it is classified;
+  `test.sh` fails when a usage command is on neither side. Two deliberate
+  calls: `mail read --mark-read` stays on the read side, and all of tmux is on
+  the write side.
+- **Tool descriptions come from the bridges.** `tools/list` runs each bridge
+  with no arguments and uses its usage output, cut to the tool's side. A
+  wrapped usage line (messages `send`) follows the command line above it. With
+  no arguments, every bridge prints usage before requesting EventKit or
+  Contacts access, so this never triggers a permission prompt. Keep it that way
+  in new bridges. A command with missing arguments may still ask for access
+  first (`reminders-bridge search`), so tests that must run without
+  permissions use `notes-bridge read`.
+- **30-second timeout.** A watchdog sends SIGTERM to the bridge. That ends the
+  call because AppleScript runs inside the bridge (`NSAppleScript`); a bridge
+  that started a long-lived child holding the pipe would defeat it. Exit by
+  SIGTERM is how the server tells a timeout from a crash. A stopped write may
+  still take effect (Messages can deliver a queued send later), so the error
+  says to check before retrying.
+- **No shell.** The bridge runs through `Process` with an argument array, so
+  the messages-bridge quoting trap cannot happen here.
+- **stdin is `/dev/null` for the bridge.** stdin is the MCP stream; a bridge
+  that read it would swallow the client's next request.
+- **Drain the pipe before `waitUntilExit()`.** Output larger than the pipe
+  buffer (a tmux snapshot) otherwise blocks the bridge forever.
+- **Bridges are found next to the server binary**, not at a hardcoded
+  `~/.claude`, so `INSTALL_DIR` overrides keep working.
+- **stdout carries only JSON-RPC.** Never `print()` in the server; one stray
+  line breaks the client.
+- **macOS attributes permissions to `apple-bridges-mcp`, not Claude.app.**
+  Claude Desktop appears to launch the server as its own responsible process:
+  the Mail Automation prompt names `apple-bridges-mcp`. Grants follow the server's
+  code signature: an ad-hoc rebuild can reset them, and Full Disk Access for
+  messages-bridge must be added to the server binary by hand.
+
 ## Adding a New Bridge
 
 1. Create `<name>-bridge.swift` in repo root
@@ -164,3 +214,6 @@ reopening Messages.app fixes it immediately — no code change involved.
 3. Add permission grant step to README.md
 4. Add to `settings.local.json` allowed tools
 5. Add usage examples to README.md
+6. Add the bridge to the `bridges` list in `apple-bridges-mcp.swift`, with
+   every command on the read or the write side. A new command for an existing
+   bridge goes on a side there too.

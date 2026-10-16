@@ -4,7 +4,7 @@
 # Integration tests for claude-apple-bridges.
 # Run via: make test  or  bash test.sh
 
-BRIDGE_DIR="${HOME}/.claude"
+BRIDGE_DIR="${BRIDGE_DIR:-$HOME/.claude}"  # override to test a build without touching the live install
 PASS=0
 FAIL=0
 
@@ -230,6 +230,69 @@ if tmux new-session -d -s "$TB_TEST_SESSION" -x 220 -y 50 2>/dev/null; then
     tmux kill-session -t "$TB_TEST_SESSION" 2>/dev/null
 else
     echo "  (skipped large-pane test: could not start a tmux session)"
+fi
+
+# ─── apple-bridges-mcp ───────────────────────────────────────────
+
+echo ""
+echo "apple-bridges-mcp"
+echo "─────────────────"
+
+MCP="$BRIDGE_DIR/apple-bridges-mcp"
+MCP_INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test.sh","version":"0"}}}'
+
+# Sends the initialize handshake, then one request, the way an MCP client would
+mcp() {
+    printf '%s\n' "$MCP_INIT" '{"jsonrpc":"2.0","method":"notifications/initialized"}' "$1" | "$MCP"
+}
+
+check_contains "initialize: echoes supported protocol" '"protocolVersion":"2025-11-25"' mcp '{"jsonrpc":"2.0","id":2,"method":"ping"}'
+check_contains "tools/list: lists reminders_read"  '"name":"reminders_read"' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+check_contains "tools/list: lists reminders_write" '"name":"reminders_write"' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+check_contains "tools/list: marks read tools"      '"readOnlyHint":true' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+# notes-bridge checks a command's arguments before any AppleScript, so this needs no permission
+check_contains "tools/call: runs the bridge"       'notes-bridge read' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"notes_read","arguments":{"args":["read"]}}}'
+check_contains "tools/call unknown tool: -32602"   '"code":-32602' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"xyzzy","arguments":{"args":[]}}}'
+check_contains "tools/call args not array: -32602" '"code":-32602' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reminders_read","arguments":{"args":"lists"}}}'
+check_contains "unknown method: -32601"            '"code":-32601' mcp '{"jsonrpc":"2.0","id":2,"method":"xyzzy"}'
+
+# The server refuses a command from the other side before the bridge runs. The list
+# name does not exist, so even a broken check could not delete anything.
+check_contains "read tool refuses a write command" 'belongs to reminders_write' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reminders_read","arguments":{"args":["delete-list","bridge-selftest-nonexistent"]}}}'
+check_contains "write tool refuses a read command" 'belongs to reminders_read'  mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reminders_write","arguments":{"args":["lists"]}}}'
+check_contains "tool refuses an unknown command"   'Unknown command'            mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reminders_read","arguments":{"args":["xyzzy"]}}}'
+check_contains "tool refuses empty args"           'No command given'           mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reminders_read","arguments":{"args":[]}}}'
+
+# Every command in a bridge's usage must be on a side; one on neither side is unreachable over MCP
+MCP_TOOLS=$(mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
+MCP_MISSING=""
+for bin in "$BRIDGE_DIR"/*-bridge; do
+    name=$(basename "$bin")
+    for cmd in $("$bin" 2>&1 | awk -v b="$name" '$1 == b { print $2 }' | sort -u); do
+        echo "$MCP_TOOLS" | grep -qE "$name $cmd( |\\\\n|\")" || MCP_MISSING="$MCP_MISSING $name:$cmd"
+    done
+done
+if [ -z "$MCP_MISSING" ]; then
+    echo -e "  ${green}✓${reset} tools/list: every bridge command is on a side"; PASS=$((PASS + 1))
+else
+    echo -e "  ${red}✗${reset} tools/list: every bridge command is on a side"
+    echo "    → missing:$MCP_MISSING"; FAIL=$((FAIL + 1))
+fi
+
+# A usage line belongs to one side only, wrapped lines included (messages `send` spans two)
+MCP_SHARED=$(echo "$MCP_TOOLS" | perl -MJSON::PP -ne '
+    my $r = eval { decode_json($_) } or next;
+    my %desc = map { $_->{name} => $_->{description} } @{ $r->{result}{tools} || [] };
+    for my $read (grep { /_read$/ } keys %desc) {
+        (my $write = $read) =~ s/_read$/_write/;
+        my %on_write = map { $_ => 1 } grep { /^\s/ } split /\n/, ($desc{$write} // "");
+        print "$read: $_\n" for grep { $on_write{$_} } split /\n/, $desc{$read};
+    }')
+if [ -z "$MCP_SHARED" ]; then
+    echo -e "  ${green}✓${reset} tools/list: no usage line on both sides"; PASS=$((PASS + 1))
+else
+    echo -e "  ${red}✗${reset} tools/list: no usage line on both sides"
+    echo "$MCP_SHARED" | sed 's/^/    → /'; FAIL=$((FAIL + 1))
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────

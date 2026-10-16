@@ -11,6 +11,7 @@
 #   make install-tmux      Install only tmux-bridge
 #   make install-messages  Install only messages-bridge
 #   make install-skills    Install skills to ~/.claude/skills/apple-bridges/
+#   make install-mcp       Install the MCP server for Claude Desktop (optional)
 #   make test              Run smoke tests (triggers permission dialogs on first run)
 #   make clean             Remove compiled binaries from ~/.claude/
 
@@ -18,7 +19,7 @@ INSTALL_DIR := $(HOME)/.claude
 PLIST_DIR   := /tmp
 CODESIGN_IDENTITY ?= -
 
-.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux install-messages install-skills test clean
+.PHONY: install install-reminders install-calendar install-contacts install-notes install-mail install-tmux install-messages install-skills install-mcp test clean
 
 SKILLS_DIR := $(INSTALL_DIR)/skills/apple-bridges
 
@@ -40,6 +41,15 @@ install-skills:
 	@mkdir -p $(SKILLS_DIR)
 	@cp skills/apple-bridges/*.md $(SKILLS_DIR)/
 	@echo "  ✓ Skills installed to $(SKILLS_DIR)"
+
+install-mcp:
+	@echo "→ Building apple-bridges-mcp..."
+	swiftc -O apple-bridges-mcp.swift -o $(INSTALL_DIR)/apple-bridges-mcp
+	codesign --force --sign "$(CODESIGN_IDENTITY)" --identifier com.claude.apple-bridges-mcp $(INSTALL_DIR)/apple-bridges-mcp
+	@echo "  ✓ apple-bridges-mcp installed"
+	@echo ""
+	@echo "Next: add it to ~/Library/Application Support/Claude/claude_desktop_config.json and restart Claude Desktop:"
+	@echo '  "mcpServers": { "apple-bridges": { "command": "$(INSTALL_DIR)/apple-bridges-mcp" } }'
 
 install-messages:
 	@echo "→ Building messages-bridge..."
@@ -106,4 +116,5 @@ clean:
 	rm -f $(INSTALL_DIR)/notes-bridge
 	rm -f $(INSTALL_DIR)/mail-bridge
 	rm -f $(INSTALL_DIR)/tmux-bridge
+	rm -f $(INSTALL_DIR)/apple-bridges-mcp
 	@echo "Removed all bridges from $(INSTALL_DIR)"

@@ -6,6 +6,7 @@ notes-bridge
 mail-bridge
 tmux-bridge
 messages-bridge
+apple-bridges-mcp
 
 # macOS
 .DS_Store
