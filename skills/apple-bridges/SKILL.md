@@ -31,7 +31,7 @@ All bridges follow the same pattern:
 ~/.claude/<bridge-name> <command> [arguments...]
 ```
 
-In Claude Desktop (via `apple-bridges-mcp`), each bridge is two tools: `<bridge>_read` for commands that only read and `<bridge>_write` for commands that change data, such as `reminders_read` and `reminders_write`. tmux has only `tmux_write`. Pass the same arguments as the `args` array, one element per argument, starting with the command.
+In Claude Desktop (via `apple-bridges-mcp`), each bridge is two tools: `<bridge>_read` for commands that only read and `<bridge>_write` for commands that change data, such as `reminders_read` and `reminders_write`. Pass the same arguments as the `args` array, one element per argument, starting with the command. A read tool refuses a flag that would write (`mail read --mark-read`), and `tmux_write` types into any pane, so it is never a tool to allow for a whole session.
 
 ### Quoting
 

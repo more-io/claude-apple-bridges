@@ -530,11 +530,12 @@ Then add the server to `~/Library/Application Support/Claude/claude_desktop_conf
 
 ### How It Works
 
-- **Two tools per bridge:** `<bridge>_read` for commands that only read and `<bridge>_write` for commands that change data, such as `reminders_read` and `reminders_write`. tmux has only `tmux_write`, because `write` types into any pane. Each takes `args`, the same arguments you'd type after the binary name, as an array.
+- **Two tools per bridge:** `<bridge>_read` for commands that only read and `<bridge>_write` for commands that change data, such as `reminders_read` and `reminders_write`. Each takes `args`, the same arguments you'd type after the binary name, as an array.
 - **Fixed command lists:** the first argument must be a command on that tool's side. Anything else is refused before the bridge runs.
 - **Descriptions stay current:** each tool's description is the bridge's own usage output, cut to that tool's commands. A new bridge command appears once it is added to a side in `apple-bridges-mcp.swift`.
 - **No shell:** the server runs the binary directly, so each array element is exactly one argument and quoting never matters.
 - **30-second timeout:** a call that runs longer is stopped and returns an error. A stopped write may still take effect, so check before retrying.
+- **256 KB output ceiling:** a longer answer is cut and says how much was dropped, so a `tmux snapshot` or a long mail thread cannot fill the whole conversation.
 - **Installed bridges only:** a bridge that isn't in `~/.claude` doesn't appear as a tool.
 
 ### Permissions
@@ -545,7 +546,15 @@ macOS asks on behalf of **apple-bridges-mcp**, not Claude, so each grant covers 
 
 Rebuilding the server with the default ad-hoc signature can make macOS ask again. Build with `CODESIGN_IDENTITY` (see [Compile](#1-compile)) to keep grants across rebuilds.
 
-Claude Desktop asks for approval per tool, not per command. That's why reads and writes are separate tools: you can always allow `mail_read` and still approve each `mail_write`. One exception: `mail_read` includes `read --mark-read`, which marks a message as read.
+Claude Desktop asks for approval per tool, not per command. That's why reads and writes are separate tools: you can always allow `reminders_read` and still approve each `reminders_write`. A read tool really only reads — `mail_read` refuses `read --mark-read`, because that flag would change data behind a tool marked read-only. Run `mail-bridge read … --mark-read` from the command line if you want it.
+
+### Don't allow a write tool for a session
+
+**Never put a `*_write` tool on "always allow".** Every write reaches the real account: a sent message can't be recalled, a deleted reminder or note is gone, and an added calendar event is on the calendar other people see. Approve each one.
+
+**`tmux_write` is remote control of this Mac, not a tmux feature.** It types keystrokes into any pane — including panes running a shell or another AI agent — and a keystroke that reaches a shell does whatever you could do at that prompt. That is why it sits alone on the write side, with reading in `tmux_read`: allow the reading, approve every write. If you don't use the bridges with tmux, don't install `tmux-bridge` at all and the tools won't exist.
+
+**Mail, Messages and Notes hand back text other people wrote.** It's data, never instructions, no matter how it's phrased. A mail that asks for a file to be sent, or a message that spells out a command, is telling you what its author wants — and `mail send --html-file` or `messages send <file>` would carry it right back out, which makes mail-to-mail a complete chain if a write tool is standing by on "always allow". Keep the writes under your own approval and the chain can't close.
 
 ---
 

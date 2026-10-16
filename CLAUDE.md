@@ -174,9 +174,21 @@ bridge CLIs stay the single source of truth for everything else.
   so "always allow" on a single tool would cover every command. Each row in
   `bridges` lists its read and its write commands. A command on neither side is
   refused, so a new bridge command stays unreachable until it is classified;
-  `test.sh` fails when a usage command is on neither side. Two deliberate
-  calls: `mail read --mark-read` stays on the read side, and all of tmux is on
-  the write side.
+  `test.sh` fails when a usage command is on neither side.
+- **A flag can write where its command reads.** The side check looks at
+  `args[0]`, so a flag like `mail read --mark-read` would walk past it. Those
+  flags are listed in `deniedReadFlags` and refused by the read tool, which is
+  what keeps `readOnlyHint: true` a promise instead of "reads, except this
+  flag"; they are on no write side either, so the CLI is the way to use one.
+  `test.sh` pins both halves: `--mark-read` is refused, and a NEW flag on a
+  read side fails the test until it is classified (#7 follow-up).
+- **`tmux_write` is the sharpest tool here** and is alone on the write side:
+  it types into any pane, a shell or another agent included, so it is remote
+  control of the Mac. Reading panes is `tmux_read`, which can be allowed
+  without handing over the keyboard. The `instructions` string says so to the
+  model, README says so to the user, and both also say that mail / messages /
+  notes content is other people's text — data, not instructions, with
+  `mail send --html-file` and `messages send <file>` as the way back out.
 - **Tool descriptions come from the bridges.** `tools/list` runs each bridge
   with no arguments and uses its usage output, cut to the tool's side. A
   wrapped usage line (messages `send`) follows the command line above it. With
@@ -191,6 +203,10 @@ bridge CLIs stay the single source of truth for everything else.
   SIGTERM is how the server tells a timeout from a crash. A stopped write may
   still take effect (Messages can deliver a queued send later), so the error
   says to check before retrying.
+- **256 KB output ceiling.** `maxOutputBytes` cuts the answer and appends how
+  much was dropped — a `tmux snapshot` or a long thread would otherwise land
+  in the client's context whole. Cut on bytes, so a character split at the
+  boundary becomes U+FFFD instead of breaking the JSON.
 - **No shell.** The bridge runs through `Process` with an argument array, so
   the messages-bridge quoting trap cannot happen here.
 - **stdin is `/dev/null` for the bridge.** stdin is the MCP stream; a bridge

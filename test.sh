@@ -263,6 +263,18 @@ check_contains "write tool refuses a read command" 'belongs to reminders_read'  
 check_contains "tool refuses an unknown command"   'Unknown command'            mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reminders_read","arguments":{"args":["xyzzy"]}}}'
 check_contains "tool refuses empty args"           'No command given'           mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"reminders_read","arguments":{"args":[]}}}'
 
+# #7 follow-up — tmux is split like every other bridge. `write` types into any pane, so it
+# stays alone on the write side and reading a pane no longer needs that approval.
+check_contains "tools/list: lists tmux_read"       '"name":"tmux_read"'   mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+check_contains "tmux_read refuses write"           'belongs to tmux_write' mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"tmux_read","arguments":{"args":["write"]}}}'
+check_contains "tmux_write refuses snapshot"       'belongs to tmux_read'  mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"tmux_write","arguments":{"args":["snapshot"]}}}'
+
+# #7 follow-up — a flag that writes, on a command that reads: the side check looks at args[0]
+# only, so `--mark-read` would walk past it. Refused before the bridge runs, so no mail is
+# touched by this test.
+check_contains "read tool refuses a writing flag"  'changes data'          mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"mail_read","arguments":{"args":["read","1","INBOX","--mark-read"]}}}'
+check_contains "the flag is named in the refusal"  'mark-read'             mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"mail_read","arguments":{"args":["read","1","--mark-read"]}}}'
+
 # Every command in a bridge's usage must be on a side; one on neither side is unreachable over MCP
 MCP_TOOLS=$(mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
 MCP_MISSING=""
@@ -294,6 +306,64 @@ else
     echo -e "  ${red}✗${reset} tools/list: no usage line on both sides"
     echo "$MCP_SHARED" | sed 's/^/    → /'; FAIL=$((FAIL + 1))
 fi
+
+# #7 follow-up — every flag on a read side must be a known read-only one. The command lists
+# are tested above, but a flag is what gets past them: `--mark-read` did. A new flag on a read
+# command fails here until it is either listed as read-only or refused in `deniedReadFlags`.
+MCP_READ_FLAGS_OK="--all --max --since --unread --raw --mid"   # read-only flags of the read sides
+MCP_READ_FLAGS_DENIED="--mark-read"                            # writing flags, refused by the server
+MCP_FLAGS=$(echo "$MCP_TOOLS" | perl -MJSON::PP -ne '
+    my $r = eval { decode_json($_) } or next;
+    for my $t (grep { $_->{name} =~ /_read$/ } @{ $r->{result}{tools} || [] }) {
+        while ($t->{description} =~ /(--[a-z][a-z-]*)/g) { print "$t->{name} $1\n" }
+    }' | sort -u)
+MCP_UNKNOWN_FLAGS=""
+MCP_UNREFUSED=""
+while read -r tool flag; do
+    [ -z "$flag" ] && continue
+    case " $MCP_READ_FLAGS_OK " in *" $flag "*) continue ;; esac
+    case " $MCP_READ_FLAGS_DENIED " in
+        *" $flag "*)
+            # Listed as writing: the server must refuse it on this read tool.
+            refusal=$(mcp "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"$tool\",\"arguments\":{\"args\":[\"read\",\"1\",\"$flag\"]}}}")
+            echo "$refusal" | grep -q "changes data" || MCP_UNREFUSED="$MCP_UNREFUSED $tool $flag"
+            continue ;;
+    esac
+    MCP_UNKNOWN_FLAGS="$MCP_UNKNOWN_FLAGS $tool $flag"
+done <<EOF
+$MCP_FLAGS
+EOF
+if [ -z "$MCP_UNKNOWN_FLAGS" ] && [ -z "$MCP_UNREFUSED" ]; then
+    echo -e "  ${green}✓${reset} tools/list: every flag on a read side is read-only or refused"; PASS=$((PASS + 1))
+else
+    echo -e "  ${red}✗${reset} tools/list: every flag on a read side is read-only or refused"
+    [ -n "$MCP_UNKNOWN_FLAGS" ] && echo "    → unclassified:$MCP_UNKNOWN_FLAGS"
+    [ -n "$MCP_UNREFUSED" ] && echo "    → listed as writing but NOT refused:$MCP_UNREFUSED"
+    FAIL=$((FAIL + 1))
+fi
+
+# #7 follow-up — the 256 KB ceiling. Needs a bridge that talks too much, so this runs against a
+# throwaway directory with a fake notes-bridge beside a copy of the server; the real bridges and
+# the real install are untouched.
+MCP_BIG_DIR=$(mktemp -d)
+cp "$MCP" "$MCP_BIG_DIR/" 2>/dev/null
+cat > "$MCP_BIG_DIR/notes-bridge" <<'FAKE'
+#!/bin/bash
+[ $# -eq 0 ] && { printf 'Usage:\n  notes-bridge read <title>\n'; exit 0; }
+perl -e 'print "x" x 300000'
+FAKE
+chmod +x "$MCP_BIG_DIR/notes-bridge"
+MCP_BIG=$(printf '%s\n' "$MCP_INIT" '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"notes_read","arguments":{"args":["read","x"]}}}' \
+    | "$MCP_BIG_DIR/apple-bridges-mcp" | tail -1)
+MCP_BIG_LEN=${#MCP_BIG}
+if echo "$MCP_BIG" | grep -q "Output cut after 256 KB" && [ "$MCP_BIG_LEN" -lt 280000 ]; then
+    echo -e "  ${green}✓${reset} tools/call: output over 256 KB is cut and says so"; PASS=$((PASS + 1))
+else
+    echo -e "  ${red}✗${reset} tools/call: output over 256 KB is cut and says so"
+    echo "    → response was $MCP_BIG_LEN chars, cut notice: $(echo "$MCP_BIG" | grep -c 'Output cut')"
+    FAIL=$((FAIL + 1))
+fi
+rm -rf "$MCP_BIG_DIR"
 
 # ─── Summary ─────────────────────────────────────────────────────
 
