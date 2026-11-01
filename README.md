@@ -575,13 +575,13 @@ See `CLAUDE.md` for developer notes and the branching workflow.
 ## About
 
 Claude Apple Bridges is built and maintained by the team behind
-[4later](https://get.4laterapp.com), the app that keeps links, documents,
+[4later](https://get.4laterapp.com/?src=apple-bridges), the app that keeps links, documents,
 photos, voice memos and notes in one place on iPhone, iPad and Mac, with an
 AI summary for every entry and a connector that lets Claude search what you
 saved. The bridges grew out of our own daily work with Claude Code; we
 publish them because they are useful far beyond 4later.
 
-Try 4later: https://get.4laterapp.com
+Try 4later: https://get.4laterapp.com/?src=apple-bridges
 
 ---
 
