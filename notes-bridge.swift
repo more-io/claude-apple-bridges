@@ -7,9 +7,12 @@
 //   notes-bridge folders [account]                             - List folders (default: iCloud)
 //   notes-bridge list [folder] [account]                       - List notes in folder
 //   notes-bridge search <query>                                - Search notes by title and content
-//   notes-bridge read <title> [account]                        - Read note content (plain text)
-//   notes-bridge add <folder> <title> <body> [account]         - Create new note
-//   notes-bridge append <title> <text> [account]               - Append text to existing note
+//   notes-bridge read <title> [--html] [account]               - Read note content (plain text, or raw HTML)
+//   notes-bridge add <folder> <title> <body|--file path> [account]         - Create new note
+//   notes-bridge append <title> <text|--file path> [account]               - Append text to existing note
+//   notes-bridge update <title> <body|--file path> [account]               - Replace a note's content (title kept)
+//   notes-bridge move <title> <folder> [account]               - Move a note to another folder
+//   notes-bridge delete <title> [--force] [account]            - Delete a note (dry-run without --force)
 
 import Foundation
 
@@ -85,6 +88,43 @@ func stripHTML(_ html: String) -> String {
     return text.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+// MARK: - Note lookup
+
+/// AppleScript that sets `matchNote` to the first note whose name is `title` (in `account`, or any
+/// account when empty), or to `missing value`. Callers return "NOTE_NOT_FOUND" when it is missing.
+func findNoteScript(title: String, account: String) -> String {
+    """
+    set matchNote to missing value
+    set matchFolder to ""
+    repeat with acc in accounts
+        if name of acc is "\(escapeForAppleScript(account))" or "\(escapeForAppleScript(account))" is "" then
+            repeat with f in folders of acc
+                -- `whose` gives references that keep resolving; a reference taken from a
+                -- `repeat with n in notes of f` loop ("item 1 of every note") can fail later.
+                set found to (notes of f whose name is "\(escapeForAppleScript(title))")
+                if (count of found) > 0 then
+                    set matchNote to item 1 of found
+                    set matchFolder to name of f
+                    exit repeat
+                end if
+            end repeat
+        end if
+        if matchNote is not missing value then exit repeat
+    end repeat
+    if matchNote is missing value then return "NOTE_NOT_FOUND"
+    """
+}
+
+/// Notes derives a note's title from the first line of its body and ignores the `name` property
+/// when a body is given. So a body that does not start with the title would create a note under a
+/// different name, which `read`, `append`, `update` and `delete` then can't find by title.
+func bodyWithTitle(_ title: String, _ body: String) -> String {
+    let t = title.replacingOccurrences(of: "&", with: "&amp;")
+        .replacingOccurrences(of: "<", with: "&lt;")
+        .replacingOccurrences(of: ">", with: "&gt;")
+    return "<div><h1>\(t)</h1></div>" + body
+}
+
 // MARK: - Commands
 
 func listAccounts() {
@@ -127,7 +167,10 @@ func listNotes(folder: String, account: String) {
                 set d to modification date of n
                 set dateStr to (year of d as string) & "-" ¬
                     & text -2 thru -1 of ("0" & (month of d as integer as string)) & "-" ¬
-                    & text -2 thru -1 of ("0" & (day of d as string))
+                    & text -2 thru -1 of ("0" & (day of d as string)) & " " ¬
+                    & text -2 thru -1 of ("0" & (hours of d as string)) & ":" ¬
+                    & text -2 thru -1 of ("0" & (minutes of d as string)) & ":" ¬
+                    & text -2 thru -1 of ("0" & (seconds of d as string))
                 set end of out to name of n & "  [" & dateStr & "]"
             end repeat
             return out
@@ -168,28 +211,11 @@ func searchNotes(query: String) {
     }
 }
 
-func readNote(title: String, account: String) {
+func readNote(title: String, account: String, html: Bool) {
     let result = runScript("""
         tell application "Notes"
-            set matchNote to missing value
-            repeat with acc in accounts
-                if name of acc is "\(account)" or "\(account)" is "" then
-                    repeat with f in folders of acc
-                        repeat with n in notes of f
-                            if name of n is "\(escapeForAppleScript(title))" then
-                                set matchNote to n
-                                exit repeat
-                            end if
-                        end repeat
-                        if matchNote is not missing value then exit repeat
-                    end repeat
-                end if
-                if matchNote is not missing value then exit repeat
-            end repeat
-            if matchNote is missing value then
-                return "NOTE_NOT_FOUND"
-            end if
-            return plaintext of matchNote
+            \(findNoteScript(title: title, account: account))
+            return \(html ? "body" : "plaintext") of matchNote
         end tell
     """)
     guard let text = result?.stringValue else {
@@ -207,7 +233,7 @@ func addNote(folder: String, title: String, body: String, account: String) {
     let result = runScript("""
         tell application "Notes"
             set targetFolder to folder "\(escapeForAppleScript(folder))" of account "\(escapeForAppleScript(account))"
-            make new note at targetFolder with properties {name:"\(escapeForAppleScript(title))", body:"\(escapeForAppleScript(body))"}
+            make new note at targetFolder with properties {body:"\(escapeForAppleScript(bodyWithTitle(title, body)))"}
             return "OK"
         end tell
     """)
@@ -222,24 +248,7 @@ func addNote(folder: String, title: String, body: String, account: String) {
 func appendToNote(title: String, text: String, account: String) {
     let result = runScript("""
         tell application "Notes"
-            set matchNote to missing value
-            repeat with acc in accounts
-                if name of acc is "\(account)" or "\(account)" is "" then
-                    repeat with f in folders of acc
-                        repeat with n in notes of f
-                            if name of n is "\(escapeForAppleScript(title))" then
-                                set matchNote to n
-                                exit repeat
-                            end if
-                        end repeat
-                        if matchNote is not missing value then exit repeat
-                    end repeat
-                end if
-                if matchNote is not missing value then exit repeat
-            end repeat
-            if matchNote is missing value then
-                return "NOTE_NOT_FOUND"
-            end if
+            \(findNoteScript(title: title, account: account))
             set body of matchNote to body of matchNote & "<br>\(escapeForAppleScript(text))"
             return "OK"
         end tell
@@ -256,28 +265,62 @@ func appendToNote(title: String, text: String, account: String) {
     }
 }
 
+func updateNote(title: String, body: String, account: String) {
+    let result = runScript("""
+        tell application "Notes"
+            \(findNoteScript(title: title, account: account))
+            set body of matchNote to "\(escapeForAppleScript(bodyWithTitle(title, body)))"
+            return "OK"
+        end tell
+    """)
+    let status = result?.stringValue
+    if status == "NOTE_NOT_FOUND" {
+        fputs("Note '\(title)' not found.\n", stderr)
+        exit(1)
+    } else if status == "OK" {
+        print("Updated note: \(title)")
+    } else {
+        fputs("Failed to update note.\n", stderr)
+        exit(1)
+    }
+}
+
+func moveNote(title: String, folder: String, account: String) {
+    let result = runScript("""
+        tell application "Notes"
+            \(findNoteScript(title: title, account: account))
+            set targetAcc to account of container of matchNote
+            move matchNote to folder "\(escapeForAppleScript(folder))" of targetAcc
+            return "OK"
+        end tell
+    """)
+    let status = result?.stringValue
+    if status == "NOTE_NOT_FOUND" {
+        fputs("Note '\(title)' not found.\n", stderr)
+        exit(1)
+    } else if status == "OK" {
+        print("Moved note '\(title)' to \(folder)")
+    } else {
+        fputs("Failed to move note.\n", stderr)
+        exit(1)
+    }
+}
+
 func deleteNote(title: String, account: String, force: Bool) {
     let result = runScript("""
         tell application "Notes"
-            set matchNote to missing value
-            repeat with acc in accounts
-                if name of acc is "\(account)" or "\(account)" is "" then
-                    repeat with f in folders of acc
-                        repeat with n in notes of f
-                            if name of n is "\(escapeForAppleScript(title))" then
-                                set matchNote to n
-                                exit repeat
-                            end if
-                        end repeat
-                        if matchNote is not missing value then exit repeat
-                    end repeat
-                end if
-                if matchNote is not missing value then exit repeat
-            end repeat
-            if matchNote is missing value then
-                return "NOTE_NOT_FOUND"
-            end if
-            delete matchNote
+            \(findNoteScript(title: title, account: account))
+            set noteId to id of matchNote
+            set origFolder to matchFolder
+            -- Notes may raise an error after the delete has already gone through (the reference
+            -- to the note stops resolving), so the error is ignored and the outcome is checked.
+            try
+                delete matchNote
+            end try
+            try
+                set nowFolder to name of container of note id noteId
+                if nowFolder is origFolder then return "NOT_DELETED"
+            end try
             return "OK"
         end tell
     """)
@@ -287,6 +330,9 @@ func deleteNote(title: String, account: String, force: Bool) {
         exit(1)
     } else if status == "OK" {
         print("Deleted note: \(title)")
+    } else if status == "NOT_DELETED" {
+        fputs("Note '\(title)' is still in its folder; delete did not take effect.\n", stderr)
+        exit(1)
     } else {
         fputs("Failed to delete note.\n", stderr)
         exit(1)
@@ -295,7 +341,30 @@ func deleteNote(title: String, account: String, force: Bool) {
 
 // MARK: - Main
 
-let args = CommandLine.arguments
+/// `--file <path>` in place of the body/text argument of add, append and update: the file's contents
+/// take the place of the two arguments. A large note can then be handed over as a path instead of
+/// being passed through the caller's context. Errors out before any AppleScript runs.
+func resolveFileArgument(_ argv: [String]) -> [String] {
+    guard argv.count >= 2, ["add", "append", "update"].contains(argv[1]),
+          let i = argv.firstIndex(of: "--file") else { return argv }
+    guard i + 1 < argv.count else {
+        fputs("--file needs a path.\n", stderr)
+        exit(1)
+    }
+    let path = (argv[i + 1] as NSString).expandingTildeInPath
+    var isDir: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), !isDir.boolValue,
+          let data = FileManager.default.contents(atPath: path),
+          let text = String(data: data, encoding: .utf8) else {
+        fputs("Cannot read '\(path)' as a UTF-8 text file.\n", stderr)
+        exit(1)
+    }
+    var out = argv
+    out.replaceSubrange(i...(i + 1), with: [text])
+    return out
+}
+
+let args = resolveFileArgument(CommandLine.arguments)
 
 guard args.count >= 2 else {
     print("Usage:")
@@ -303,9 +372,11 @@ guard args.count >= 2 else {
     print("  notes-bridge folders [account]")
     print("  notes-bridge list [folder] [account]")
     print("  notes-bridge search <query>")
-    print("  notes-bridge read <title> [account]")
-    print("  notes-bridge add <folder> <title> <body> [account]")
-    print("  notes-bridge append <title> <text> [account]")
+    print("  notes-bridge read <title> [--html] [account]")
+    print("  notes-bridge add <folder> <title> <body|--file path> [account]")
+    print("  notes-bridge append <title> <text|--file path> [account]")
+    print("  notes-bridge update <title> <body|--file path> [account]")
+    print("  notes-bridge move <title> <folder> [account]")
     print("  notes-bridge delete <title> [--force] [account]")
     exit(0)
 }
@@ -337,15 +408,17 @@ case "search":
 
 case "read":
     guard args.count >= 3 else {
-        fputs("Usage: notes-bridge read <title> [account]\n", stderr)
+        fputs("Usage: notes-bridge read <title> [--html] [account]\n", stderr)
         exit(1)
     }
-    let account = args.count >= 4 ? args[3] : ""
-    readNote(title: args[2], account: account)
+    let html = args.contains("--html")
+    let rest = args.filter { $0 != "--html" }
+    let account = rest.count >= 4 ? rest[3] : ""
+    readNote(title: rest[2], account: account, html: html)
 
 case "add":
     guard args.count >= 5 else {
-        fputs("Usage: notes-bridge add <folder> <title> <body> [account]\n", stderr)
+        fputs("Usage: notes-bridge add <folder> <title> <body|--file path> [account]\n", stderr)
         exit(1)
     }
     let account = args.count >= 6 ? args[5] : defaultAccount
@@ -353,11 +426,27 @@ case "add":
 
 case "append":
     guard args.count >= 4 else {
-        fputs("Usage: notes-bridge append <title> <text> [account]\n", stderr)
+        fputs("Usage: notes-bridge append <title> <text|--file path> [account]\n", stderr)
         exit(1)
     }
     let account = args.count >= 5 ? args[4] : ""
     appendToNote(title: args[2], text: args[3], account: account)
+
+case "update":
+    guard args.count >= 4 else {
+        fputs("Usage: notes-bridge update <title> <body|--file path> [account]\n", stderr)
+        exit(1)
+    }
+    let account = args.count >= 5 ? args[4] : ""
+    updateNote(title: args[2], body: args[3], account: account)
+
+case "move":
+    guard args.count >= 4 else {
+        fputs("Usage: notes-bridge move <title> <folder> [account]\n", stderr)
+        exit(1)
+    }
+    let account = args.count >= 5 ? args[4] : ""
+    moveNote(title: args[2], folder: args[3], account: account)
 
 case "delete":
     guard args.count >= 3 else {

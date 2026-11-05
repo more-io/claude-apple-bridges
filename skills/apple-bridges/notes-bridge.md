@@ -81,7 +81,7 @@ Search notes by title and content across all accounts.
 Read a note's content as plain text (HTML stripped).
 
 ```bash
-~/.claude/notes-bridge read <title> [account]
+~/.claude/notes-bridge read <title> [--html] [account]
 ```
 
 | Argument | Required | Description |
@@ -99,7 +99,7 @@ Read a note's content as plain text (HTML stripped).
 Create a new note. Supports HTML formatting.
 
 ```bash
-~/.claude/notes-bridge add <folder> <title> <body> [account]
+~/.claude/notes-bridge add <folder> <title> <body|--file path> [account]
 ```
 
 | Argument | Required | Description |
@@ -119,12 +119,30 @@ Create a new note. Supports HTML formatting.
 
 **Supported HTML tags:** `<b>`, `<i>`, `<u>`, `<br>`, `<ul>`, `<ol>`, `<li>`, `<h1>`-`<h3>`, `<a href="...">`, `<p>`
 
+### update
+
+Replace a note's content. The title is kept (Notes derives it from the first line, so the bridge writes it back as a heading).
+
+```bash
+~/.claude/notes-bridge update <title> <body|--file path> [account]
+```
+
+```bash
+~/.claude/notes-bridge update "Shopping" "Milk<br>Eggs"
+```
+
+### move
+
+```bash
+~/.claude/notes-bridge move <title> <folder> [account]
+```
+
 ### append
 
 Append text to an existing note. Supports HTML.
 
 ```bash
-~/.claude/notes-bridge append <title> <text> [account]
+~/.claude/notes-bridge append <title> <text|--file path> [account]
 ```
 
 | Argument | Required | Description |
