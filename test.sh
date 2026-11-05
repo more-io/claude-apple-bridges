@@ -175,6 +175,8 @@ check        "search missing arg: exits 1"          1  "$NB" search
 check        "read missing arg: exits 1"            1  "$NB" read
 check        "add missing arg: exits 1"             1  "$NB" add
 check        "append missing arg: exits 1"          1  "$NB" append
+check        "update missing arg: exits 1"          1  "$NB" update
+check        "move missing arg: exits 1"            1  "$NB" move
 check        "delete missing arg: exits 1"          1  "$NB" delete
 check_contains "delete dry-run: no --force"        "Dry-run" "$NB" delete "xyzzy_nonexistent_42"
 check        "unknown command: exits 1"             1  "$NB" xyzzy

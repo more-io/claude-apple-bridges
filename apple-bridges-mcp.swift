@@ -30,7 +30,7 @@ let bridges: [Bridge] = [
      ["add", "update", "remove", "delete"]),
     ("notes", "notes-bridge", "Apple Notes",
      ["accounts", "folders", "list", "search", "read"],
-     ["add", "append", "delete"]),
+     ["add", "append", "update", "move", "delete"]),
     ("mail", "mail-bridge", "Apple Mail",
      ["accounts", "mailboxes", "list", "unread", "search", "read"],
      ["send", "delete"]),

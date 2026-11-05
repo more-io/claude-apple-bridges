@@ -154,9 +154,11 @@ notes-bridge accounts                                         List all accounts
 notes-bridge folders [account]                                List folders (default: iCloud)
 notes-bridge list [folder] [account]                          List notes with modification date
 notes-bridge search <query>                                   Search by title and content across all accounts
-notes-bridge read <title> [account]                           Read note content as plain text
-notes-bridge add <folder> <title> <body> [account]            Create a new note
-notes-bridge append <title> <text> [account]                  Append text to an existing note
+notes-bridge read <title> [--html] [account]                  Read note content (plain text; --html for raw HTML)
+notes-bridge add <folder> <title> <body|--file path> [account]            Create a new note
+notes-bridge append <title> <text|--file path> [account]                  Append text to an existing note
+notes-bridge update <title> <body|--file path> [account]                   Replace a note's content (title kept)
+notes-bridge move <title> <folder> [account]                  Move a note to another folder
 notes-bridge delete <title> [--force] [account]               Delete a note (dry-run without --force)
 ```
 
