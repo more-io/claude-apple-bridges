@@ -92,10 +92,13 @@ func stripHTML(_ html: String) -> String {
 
 /// AppleScript that sets `matchNote` to the first note whose name is `title` (in `account`, or any
 /// account when empty), or to `missing value`. Callers return "NOTE_NOT_FOUND" when it is missing.
+/// `matchAcc` holds the account the note was found in: a folder has no readable `account` or
+/// `container` property, so this loop is the only place that knows it.
 func findNoteScript(title: String, account: String) -> String {
     """
     set matchNote to missing value
     set matchFolder to ""
+    set matchAcc to missing value
     repeat with acc in accounts
         if name of acc is "\(escapeForAppleScript(account))" or "\(escapeForAppleScript(account))" is "" then
             repeat with f in folders of acc
@@ -105,6 +108,7 @@ func findNoteScript(title: String, account: String) -> String {
                 if (count of found) > 0 then
                     set matchNote to item 1 of found
                     set matchFolder to name of f
+                    set matchAcc to acc
                     exit repeat
                 end if
             end repeat
@@ -289,8 +293,7 @@ func moveNote(title: String, folder: String, account: String) {
     let result = runScript("""
         tell application "Notes"
             \(findNoteScript(title: title, account: account))
-            set targetAcc to account of container of matchNote
-            move matchNote to folder "\(escapeForAppleScript(folder))" of targetAcc
+            move matchNote to folder "\(escapeForAppleScript(folder))" of matchAcc
             return "OK"
         end tell
     """)
