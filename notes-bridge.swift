@@ -119,14 +119,69 @@ func findNoteScript(title: String, account: String) -> String {
     """
 }
 
+func escapeHTML(_ s: String) -> String {
+    s.replacingOccurrences(of: "&", with: "&amp;")
+        .replacingOccurrences(of: "<", with: "&lt;")
+        .replacingOccurrences(of: ">", with: "&gt;")
+}
+
+func unescapeHTML(_ s: String) -> String {
+    s.replacingOccurrences(of: "&lt;", with: "<")
+        .replacingOccurrences(of: "&gt;", with: ">")
+        .replacingOccurrences(of: "&amp;", with: "&")
+}
+
+/// The heading Notes takes the title from.
+func titleHeading(_ title: String) -> String { "<div><h1>\(escapeHTML(title))</h1></div>" }
+
+let blockTags = "div|p|h[1-6]|ul|ol|li|table|thead|tbody|tr|td|th|blockquote|pre|hr|br|section|article"
+
+/// A body goes to Notes as HTML, where a bare newline is whitespace: text handed over with
+/// `--file` or as `$'a\nb'` arrived as one long line. Newlines therefore become `<br>` — except
+/// one that merely separates two block tags, which is the markup's own formatting and would
+/// otherwise add an empty line to `<p>a</p>\n<p>b</p>`.
+func newlinesToBreaks(_ body: String) -> String {
+    var out = body
+    if let re = try? NSRegularExpression(pattern: "(</?(?:\(blockTags))\\b[^>]*>)[ \\t]*\\r?\\n[ \\t]*(?=<)") {
+        out = re.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out), withTemplate: "$1")
+    }
+    return out.replacingOccurrences(of: "\r\n", with: "<br>")
+        .replacingOccurrences(of: "\r", with: "<br>")
+        .replacingOccurrences(of: "\n", with: "<br>")
+}
+
+/// The text of an HTML fragment: tags out, entities back to characters.
+func stripTags(_ s: String) -> String {
+    unescapeHTML(s.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression))
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+/// `read` prints the title as the first line and `read --html` as the leading heading, because
+/// that is where Notes keeps it. Reading a note, editing the text and handing it back to `update`
+/// would then write a second title, so a title that is already there is dropped before the
+/// heading is put in front. Notes rewrites the markup it was given -- the `<h1>` of
+/// `titleHeading` comes back as `<div><b><font ...><span ...>` -- so the first block element is
+/// recognized by its text, not by its markup.
+func stripLeadingTitle(_ title: String, _ body: String) -> String {
+    for close in ["</h1>", "</div>"] {
+        if let r = body.range(of: close), stripTags(String(body[..<r.upperBound])) == title {
+            // The newline that followed the heading would otherwise come back as a <br> and the
+            // note would gain an empty line with every round trip.
+            return String(body[r.upperBound...]).drop(while: { $0 == "\n" || $0 == "\r" }).description
+        }
+    }
+    if body == title { return "" }
+    for sep in ["\r\n", "\n", "<br>", "<br/>", "<br />"] where body.hasPrefix(title + sep) {
+        return String(body.dropFirst(title.count + sep.count))
+    }
+    return body
+}
+
 /// Notes derives a note's title from the first line of its body and ignores the `name` property
 /// when a body is given. So a body that does not start with the title would create a note under a
 /// different name, which `read`, `append`, `update` and `delete` then can't find by title.
 func bodyWithTitle(_ title: String, _ body: String) -> String {
-    let t = title.replacingOccurrences(of: "&", with: "&amp;")
-        .replacingOccurrences(of: "<", with: "&lt;")
-        .replacingOccurrences(of: ">", with: "&gt;")
-    return "<div><h1>\(t)</h1></div>" + body
+    titleHeading(title) + newlinesToBreaks(stripLeadingTitle(title, body))
 }
 
 // MARK: - Commands
@@ -253,7 +308,7 @@ func appendToNote(title: String, text: String, account: String) {
     let result = runScript("""
         tell application "Notes"
             \(findNoteScript(title: title, account: account))
-            set body of matchNote to body of matchNote & "<br>\(escapeForAppleScript(text))"
+            set body of matchNote to body of matchNote & "<br>\(escapeForAppleScript(newlinesToBreaks(text)))"
             return "OK"
         end tell
     """)
