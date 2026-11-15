@@ -96,16 +96,23 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | ~/.claude/apple
 
 ## notes-bridge: HTML Formatting
 
-The `add` and `append` commands support HTML — Notes.app renders it natively:
+The `add`, `append` and `update` commands support HTML — Notes.app renders it natively:
 
 ```bash
 notes-bridge add "Work" "Title" "<b>Bold</b><br><ul><li>Item 1</li><li>Item 2</li></ul>"
 notes-bridge append "Title" "<br><b>Update:</b> some text"
+notes-bridge add "Work" "Title" --file /path/to/body.html
 ```
 
 Supported tags: `<b>`, `<i>`, `<u>`, `<br>`, `<ul>`, `<ol>`, `<li>`, `<h1>`–`<h3>`, `<a href="...">`, `<p>`
 
-`read` always returns plain text (HTML stripped).
+A plain newline — from `--file` or a `$'a\nb'` argument — becomes a line break; one that only
+separates two block tags does not.
+
+`read` returns plain text (HTML stripped), `read --html` the raw HTML body. The title is the
+first line of the body, which is where Notes keeps it, so feeding `read` output back into
+`update` does not duplicate it. Notes in "Recently Deleted" are not found by title; `search`
+lists them and names their folder.
 
 ## mail-bridge: Send Behavior
 
