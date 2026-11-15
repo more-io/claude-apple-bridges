@@ -162,7 +162,14 @@ notes-bridge move <title> <folder> [account]                  Move a note to ano
 notes-bridge delete <title> [--force] [account]               Delete a note (dry-run without --force)
 ```
 
-**Formatting:** The `body` and `text` parameters support HTML — Notes.app renders it natively.
+**Formatting:** The `body` and `text` parameters support HTML — Notes.app renders it natively. A
+plain newline — from `--file` or from a `$'a\nb'` argument — becomes a line break, so a text file
+keeps its shape; a newline that merely separates two block tags does not add an empty line.
+
+**Titles:** Notes takes a note's title from the first line of its body, so the bridge writes it
+there as a heading. `read` and `read --html` hand that line back, and feeding their output into
+`update` does not produce a second title. A note in "Recently Deleted" is never found by title —
+only the live note is read, moved, changed or deleted.
 
 ```bash
 # Plain text note

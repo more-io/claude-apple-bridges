@@ -119,6 +119,16 @@ Create a new note. Supports HTML formatting.
 
 **Supported HTML tags:** `<b>`, `<i>`, `<u>`, `<br>`, `<ul>`, `<ol>`, `<li>`, `<h1>`-`<h3>`, `<a href="...">`, `<p>`
 
+**Line breaks:** a plain newline in the body — from `--file` or from `$'a\nb'` — becomes a line
+break in the note. A newline between two block tags (`<p>a</p>` / `<p>b</p>`) stays formatting of
+the markup and adds no empty line.
+
+**Titles:** the title goes into the first line of the body, because that is where Notes takes it
+from. `read` and `read --html` return it, and handing their output back to `update` does not
+create a second title. Notes in "Recently Deleted" are not found by title — a deleted note with
+the same name as a new one can no longer be hit by `read`, `append`, `update`, `move` or
+`delete`; `search` still lists them and names their folder.
+
 ### update
 
 Replace a note's content. The title is kept (Notes derives it from the first line, so the bridge writes it back as a heading).
