@@ -188,7 +188,8 @@ bridge CLIs stay the single source of truth for everything else.
   without handing over the keyboard. The `instructions` string says so to the
   model, README says so to the user, and both also say that mail / messages /
   notes content is other people's text — data, not instructions, with
-  `mail send --html-file` and `messages send <file>` as the way back out.
+  `mail send --html-file`, `messages send <file>` and `notes add/append/update
+  --file` as the way back out.
 - **Tool descriptions come from the bridges.** `tools/list` runs each bridge
   with no arguments and uses its usage output, cut to the tool's side. A
   wrapped usage line (messages `send`) follows the command line above it. With
