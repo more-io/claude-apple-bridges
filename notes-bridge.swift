@@ -410,12 +410,15 @@ case "search":
     searchNotes(query: args[2])
 
 case "read":
-    guard args.count >= 3 else {
+    // The flag has to come out of the list before the count is checked: `read --html` passes
+    // `args.count >= 3` but leaves two elements, and `rest[2]` then traps with
+    // "Index out of range" (exit 133) instead of printing the usage line.
+    let html = args.contains("--html")
+    let rest = args.filter { $0 != "--html" }
+    guard rest.count >= 3 else {
         fputs("Usage: notes-bridge read <title> [--html] [account]\n", stderr)
         exit(1)
     }
-    let html = args.contains("--html")
-    let rest = args.filter { $0 != "--html" }
     let account = rest.count >= 4 ? rest[3] : ""
     readNote(title: rest[2], account: account, html: html)
 
@@ -452,17 +455,19 @@ case "move":
     moveNote(title: args[2], folder: args[3], account: account)
 
 case "delete":
-    guard args.count >= 3 else {
+    // Same here: `delete --force` would otherwise take "--force" for the title.
+    let force = args.contains("--force")
+    let rest = args.filter { $0 != "--force" }
+    guard rest.count >= 3 else {
         fputs("Usage: notes-bridge delete <title> [--force] [account]\n", stderr)
         exit(1)
     }
-    let force = args.contains("--force")
-    let account = args.filter { $0 != "--force" }.count >= 4 ? args.filter { $0 != "--force" }[3] : ""
+    let account = rest.count >= 4 ? rest[3] : ""
     if !force {
-        print("Dry-run: would delete '\(args[2])'. Use --force to actually delete.")
+        print("Dry-run: would delete '\(rest[2])'. Use --force to actually delete.")
         exit(0)
     }
-    deleteNote(title: args[2], account: account, force: force)
+    deleteNote(title: rest[2], account: account, force: force)
 
 default:
     fputs("Unknown command: \(command)\n", stderr)
