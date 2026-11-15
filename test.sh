@@ -175,6 +175,8 @@ check        "search missing arg: exits 1"          1  "$NB" search
 check        "read missing arg: exits 1"            1  "$NB" read
 check        "add missing arg: exits 1"             1  "$NB" add
 check        "append missing arg: exits 1"          1  "$NB" append
+check        "update missing arg: exits 1"          1  "$NB" update
+check        "move missing arg: exits 1"            1  "$NB" move
 check        "delete missing arg: exits 1"          1  "$NB" delete
 check_contains "delete dry-run: no --force"        "Dry-run" "$NB" delete "xyzzy_nonexistent_42"
 check        "unknown command: exits 1"             1  "$NB" xyzzy
@@ -310,7 +312,7 @@ fi
 # #7 follow-up — every flag on a read side must be a known read-only one. The command lists
 # are tested above, but a flag is what gets past them: `--mark-read` did. A new flag on a read
 # command fails here until it is either listed as read-only or refused in `deniedReadFlags`.
-MCP_READ_FLAGS_OK="--all --max --since --unread --raw --mid"   # read-only flags of the read sides
+MCP_READ_FLAGS_OK="--all --max --since --unread --raw --mid --html"   # read-only flags of the read sides
 MCP_READ_FLAGS_DENIED="--mark-read"                            # writing flags, refused by the server
 MCP_FLAGS=$(echo "$MCP_TOOLS" | perl -MJSON::PP -ne '
     my $r = eval { decode_json($_) } or next;

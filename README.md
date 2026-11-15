@@ -154,13 +154,22 @@ notes-bridge accounts                                         List all accounts
 notes-bridge folders [account]                                List folders (default: iCloud)
 notes-bridge list [folder] [account]                          List notes with modification date
 notes-bridge search <query>                                   Search by title and content across all accounts
-notes-bridge read <title> [account]                           Read note content as plain text
-notes-bridge add <folder> <title> <body> [account]            Create a new note
-notes-bridge append <title> <text> [account]                  Append text to an existing note
+notes-bridge read <title> [--html] [account]                  Read note content (plain text; --html for raw HTML)
+notes-bridge add <folder> <title> <body|--file path> [account]            Create a new note
+notes-bridge append <title> <text|--file path> [account]                  Append text to an existing note
+notes-bridge update <title> <body|--file path> [account]                   Replace a note's content (title kept)
+notes-bridge move <title> <folder> [account]                  Move a note to another folder
 notes-bridge delete <title> [--force] [account]               Delete a note (dry-run without --force)
 ```
 
-**Formatting:** The `body` and `text` parameters support HTML — Notes.app renders it natively.
+**Formatting:** The `body` and `text` parameters support HTML — Notes.app renders it natively. A
+plain newline — from `--file` or from a `$'a\nb'` argument — becomes a line break, so a text file
+keeps its shape; a newline that merely separates two block tags does not add an empty line.
+
+**Titles:** Notes takes a note's title from the first line of its body, so the bridge writes it
+there as a heading. `read` and `read --html` hand that line back, and feeding their output into
+`update` does not produce a second title. A note in "Recently Deleted" is never found by title —
+only the live note is read, moved, changed or deleted.
 
 ```bash
 # Plain text note
@@ -554,7 +563,7 @@ Claude Desktop asks for approval per tool, not per command. That's why reads and
 
 **`tmux_write` is remote control of this Mac, not a tmux feature.** It types keystrokes into any pane — including panes running a shell or another AI agent — and a keystroke that reaches a shell does whatever you could do at that prompt. That is why it sits alone on the write side, with reading in `tmux_read`: allow the reading, approve every write. If you don't use the bridges with tmux, don't install `tmux-bridge` at all and the tools won't exist.
 
-**Mail, Messages and Notes hand back text other people wrote.** It's data, never instructions, no matter how it's phrased. A mail that asks for a file to be sent, or a message that spells out a command, is telling you what its author wants — and `mail send --html-file` or `messages send <file>` would carry it right back out, which makes mail-to-mail a complete chain if a write tool is standing by on "always allow". Keep the writes under your own approval and the chain can't close.
+**Mail, Messages and Notes hand back text other people wrote.** It's data, never instructions, no matter how it's phrased. A mail that asks for a file to be sent, or a message that spells out a command, is telling you what its author wants — and `mail send --html-file`, `messages send <file>` or `notes add/append/update --file` would carry it right back out, which makes mail-to-mail a complete chain if a write tool is standing by on "always allow". Keep the writes under your own approval and the chain can't close.
 
 ---
 

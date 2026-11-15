@@ -96,16 +96,23 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | ~/.claude/apple
 
 ## notes-bridge: HTML Formatting
 
-The `add` and `append` commands support HTML — Notes.app renders it natively:
+The `add`, `append` and `update` commands support HTML — Notes.app renders it natively:
 
 ```bash
 notes-bridge add "Work" "Title" "<b>Bold</b><br><ul><li>Item 1</li><li>Item 2</li></ul>"
 notes-bridge append "Title" "<br><b>Update:</b> some text"
+notes-bridge add "Work" "Title" --file /path/to/body.html
 ```
 
 Supported tags: `<b>`, `<i>`, `<u>`, `<br>`, `<ul>`, `<ol>`, `<li>`, `<h1>`–`<h3>`, `<a href="...">`, `<p>`
 
-`read` always returns plain text (HTML stripped).
+A plain newline — from `--file` or a `$'a\nb'` argument — becomes a line break; one that only
+separates two block tags does not.
+
+`read` returns plain text (HTML stripped), `read --html` the raw HTML body. The title is the
+first line of the body, which is where Notes keeps it, so feeding `read` output back into
+`update` does not duplicate it. Notes in "Recently Deleted" are not found by title; `search`
+lists them and names their folder.
 
 ## mail-bridge: Send Behavior
 
@@ -188,7 +195,8 @@ bridge CLIs stay the single source of truth for everything else.
   without handing over the keyboard. The `instructions` string says so to the
   model, README says so to the user, and both also say that mail / messages /
   notes content is other people's text — data, not instructions, with
-  `mail send --html-file` and `messages send <file>` as the way back out.
+  `mail send --html-file`, `messages send <file>` and `notes add/append/update
+  --file` as the way back out.
 - **Tool descriptions come from the bridges.** `tools/list` runs each bridge
   with no arguments and uses its usage output, cut to the tool's side. A
   wrapped usage line (messages `send`) follows the command line above it. With
