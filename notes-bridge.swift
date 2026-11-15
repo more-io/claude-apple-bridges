@@ -102,14 +102,23 @@ func findNoteScript(title: String, account: String) -> String {
     repeat with acc in accounts
         if name of acc is "\(escapeForAppleScript(account))" or "\(escapeForAppleScript(account))" is "" then
             repeat with f in folders of acc
-                -- `whose` gives references that keep resolving; a reference taken from a
-                -- `repeat with n in notes of f` loop ("item 1 of every note") can fail later.
-                set found to (notes of f whose name is "\(escapeForAppleScript(title))")
-                if (count of found) > 0 then
-                    set matchNote to item 1 of found
-                    set matchFolder to name of f
-                    set matchAcc to acc
-                    exit repeat
+                -- The trash is a folder like any other here, so a note that was deleted was
+                -- still found by its title and every write on it then failed with "a locked
+                -- note in Recently Deleted can't be changed" -- or, worse, hit the deleted
+                -- namesake instead of the new note. A folder carries no property that marks
+                -- the trash (name, id and shared is all of them), but AppleScript reports the
+                -- internal English name even on a localized system (checked on a German one,
+                -- where the window says "Zuletzt geloescht"), so the name is the way to skip it.
+                if name of f is not "Recently Deleted" then
+                    -- `whose` gives references that keep resolving; a reference taken from a
+                    -- `repeat with n in notes of f` loop ("item 1 of every note") can fail later.
+                    set found to (notes of f whose name is "\(escapeForAppleScript(title))")
+                    if (count of found) > 0 then
+                        set matchNote to item 1 of found
+                        set matchFolder to name of f
+                        set matchAcc to acc
+                        exit repeat
+                    end if
                 end if
             end repeat
         end if
