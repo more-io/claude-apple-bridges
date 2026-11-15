@@ -312,7 +312,7 @@ fi
 # #7 follow-up — every flag on a read side must be a known read-only one. The command lists
 # are tested above, but a flag is what gets past them: `--mark-read` did. A new flag on a read
 # command fails here until it is either listed as read-only or refused in `deniedReadFlags`.
-MCP_READ_FLAGS_OK="--all --max --since --unread --raw --mid"   # read-only flags of the read sides
+MCP_READ_FLAGS_OK="--all --max --since --unread --raw --mid --html"   # read-only flags of the read sides
 MCP_READ_FLAGS_DENIED="--mark-read"                            # writing flags, refused by the server
 MCP_FLAGS=$(echo "$MCP_TOOLS" | perl -MJSON::PP -ne '
     my $r = eval { decode_json($_) } or next;
