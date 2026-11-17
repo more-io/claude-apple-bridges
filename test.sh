@@ -199,7 +199,13 @@ check_contains "search nonexistent: no results"   "No messages" "$MB" search "xy
 check        "search missing arg: exits 1"         1  "$MB" search
 check        "read missing arg: exits 1"           1  "$MB" read
 check        "send missing arg: exits 1"           1  "$MB" send
-check_contains "send dry-run: no --force"         "Dry-run" "$MB" send "test@test.com" "Subject" "Body"
+# `send` without --force opens a compose window in Mail for review — nothing here
+# can close it again, so that path is not exercised automatically. What is: a send
+# that cannot go through must fail fast and take its half-built message with it,
+# instead of hanging until the caller gives up and leaving the compose window
+# behind (--html-file on a directory makes Mail's `cat` fail after the message was
+# already created).
+check        "send that fails: exits 1"            1  "$MB" send "test@test.com" "Subject" --html-file "/tmp" --force
 check        "delete missing arg: exits 1"         1  "$MB" delete
 check_contains "delete dry-run: no --force"       "Dry-run" "$MB" delete "1"
 check        "unknown command: exits 1"            1  "$MB" xyzzy
