@@ -172,6 +172,8 @@ Compose and send an email. **Without `--force`**: opens a compose window in Mail
 
 **Important:** Always prefer opening the compose window (without `--force`) unless the user explicitly asks to send directly.
 
+**A send that fails, fails fast.** Mail stops answering Apple events while a dialog sits in front of it, so the send runs under a timeout of 30 seconds, plus 15 per attachment (`MAIL_BRIDGE_TIMEOUT=<seconds>` overrides). On any error the bridge exits non-zero with the AppleScript error number, and the half-built message is closed instead of being left on screen — Mail keeps it in Drafts. So a non-zero exit means nothing was sent, and nothing is waiting in a compose window either. Unattended callers should check the exit code rather than a wall-clock timeout of their own.
+
 ### delete
 
 Move a message to Trash. Dry-run by default — use `--force` to actually delete.
