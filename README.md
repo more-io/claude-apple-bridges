@@ -264,6 +264,16 @@ mail-bridge send heiko@web.de "Betreff" "Hallo Heiko, ..." --force
 mail-bridge send heiko@web.de "Report" "See attached." /tmp/report.pdf --from work@company.com --force
 ```
 
+**A send that fails, fails fast.** Mail stops answering Apple events while a
+dialog sits in front of it, and a script waiting on it would hang for the Apple
+event default of two minutes — long enough for an unattended caller to time out,
+kill the bridge, and leave the message Mail already built on screen as an unsent
+compose window, one more per retry. The send therefore runs under an explicit
+timeout of 30 seconds, plus 15 per attachment, and closes the message again
+before exiting non-zero — Mail files it under Drafts, so nothing stays on screen
+and nothing is lost. `MAIL_BRIDGE_TIMEOUT=<seconds>` overrides the timeout for a
+slow server or a large attachment.
+
 ### tmux-bridge
 Read and write tmux session contents from Claude Code — great for end-of-day summaries and interactive terminal control.
 

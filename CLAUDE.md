@@ -118,6 +118,18 @@ lists them and names their folder.
 
 - **Without `--force`**: opens Mail.app compose window — user reviews and sends manually
 - **With `--force`**: sends directly without UI (use only when explicitly requested)
+- **Mail is not always listening.** With a dialog in front of it or a compose
+  window it will not release, Mail stops answering Apple events, and
+  NSAppleScript then waits for the Apple event default of two minutes. A caller
+  with a shorter timeout of its own never sees an error, only a command that
+  never came back — and the message Mail already built stays on screen as an
+  unsent compose window, one more for every retry. So the whole send runs inside
+  `with timeout` (30s, plus 15s per attachment, `MAIL_BRIDGE_TIMEOUT` overrides),
+  and whatever the error, the half-built message is deleted before the bridge
+  exits non-zero. `delete` on an outgoing message closes the window and files it
+  under Drafts — that is wanted: nothing on screen, nothing lost. Keep both when
+  you touch `sendMessage`: a send that fails has to fail fast and leave no window
+  behind.
 
 ## messages-bridge: Reading chat.db
 

@@ -444,40 +444,69 @@ func sendMessage(to recipient: String, subject: String, body: String, attachment
     let senderProp = sender.isEmpty ? "" : ", sender:\"\(escapeForAppleScript(sender))\""
     let visibleProp = force ? "" : ", visible:true"
 
+    // Mail can stop answering Apple events — a modal dialog in front of it, a
+    // compose window it will not let go of. NSAppleScript then waits for the
+    // Apple event default of two minutes, so a caller with its own timeout (the
+    // Xcode monitor kills us after 120s) never sees an error: it only sees a
+    // command that never returned, and Mail keeps the half-built message as an
+    // open compose window — one more per retry, every one of them unsent.
+    // So the whole conversation with Mail runs under an explicit timeout, and
+    // whatever goes wrong, the message is discarded instead of staying on
+    // screen. MAIL_BRIDGE_TIMEOUT overrides the seconds; attachments get extra
+    // time because Mail builds them into the message before it answers.
+    let defaultTimeout = 30 + 15 * attachmentPaths.count
+    let sendTimeout = Int(ProcessInfo.processInfo.environment["MAIL_BRIDGE_TIMEOUT"] ?? "").map { max(1, $0) } ?? defaultTimeout
+
     // When using --html-file, read HTML from file inside AppleScript to avoid escaping issues.
     // The content property is set to empty string; html content overrides it.
     let contentValue = htmlFilePath.isEmpty ? escapeForAppleScript(body) : ""
     var script = """
         tell application "Mail"
-            set newMsg to make new outgoing message with properties {subject:"\(escapeForAppleScript(subject))", content:"\(contentValue)"\(senderProp)\(visibleProp)}
-            tell newMsg
-                make new to recipient with properties {address:"\(escapeForAppleScript(recipient))"}
+            set newMsg to missing value
+            try
+                with timeout of \(sendTimeout) seconds
+                    set newMsg to make new outgoing message with properties {subject:"\(escapeForAppleScript(subject))", content:"\(contentValue)"\(senderProp)\(visibleProp)}
+                    tell newMsg
+                        make new to recipient with properties {address:"\(escapeForAppleScript(recipient))"}
         """
     if !htmlFilePath.isEmpty {
-        script += "\n        set html content of newMsg to (do shell script \"cat \" & quoted form of \"\(escapeForAppleScript(htmlFilePath))\")"
+        script += "\n                set html content of newMsg to (do shell script \"cat \" & quoted form of \"\(escapeForAppleScript(htmlFilePath))\")"
     }
     // Multiple attachments — one `make new attachment` line per file.
     // Mail.app appends them in order, so each shows up in the compose window.
     for path in attachmentPaths {
-        script += "\n        make new attachment with properties {file name:POSIX file \"\(escapeForAppleScript(path))\"}"
+        script += "\n                make new attachment with properties {file name:POSIX file \"\(escapeForAppleScript(path))\"}"
     }
-    if force {
-        script += """
+    script += force ? """
 
-                end tell
-                send newMsg
-                return "SENT"
-            end tell
-        """
-    } else {
-        script += """
+                    end tell
+                    send newMsg
+        """ : """
 
-                end tell
-            end tell
-            activate
-            return "OPENED"
+                    end tell
+                    activate
         """
-    }
+    // On any error — a timeout above all — the message must not be left behind
+    // as a compose window. `delete` closes it and Mail files the unsent message
+    // under Drafts, which is the point: nothing on screen, nothing lost. The
+    // cleanup talks to the same unresponsive Mail, so it gets a short timeout of
+    // its own and may fail too.
+    script += """
+
+                end timeout
+            on error errMsg number errNum
+                if newMsg is not missing value then
+                    try
+                        with timeout of 10 seconds
+                            delete newMsg
+                        end timeout
+                    end try
+                end if
+                return "FAILED:" & (errNum as text) & ": " & errMsg
+            end try
+            return "\(force ? "SENT" : "OPENED")"
+        end tell
+        """
     let result = runScript(script)
     let status = result?.stringValue
     if status == "SENT" {
@@ -487,6 +516,14 @@ func sendMessage(to recipient: String, subject: String, body: String, attachment
     } else if status == "OPENED" {
         let openAttach = attachmentPaths.isEmpty ? "" : " with \(attachmentPaths.count) attachment\(attachmentPaths.count == 1 ? "" : "s")"
         print("Compose window opened\(openAttach) — review and send manually in Mail.app.")
+    } else if let status, status.hasPrefix("FAILED:") {
+        let detail = String(status.dropFirst("FAILED:".count))
+        fputs("Failed to \(force ? "send" : "compose") message: \(detail)\n", stderr)
+        if detail.hasPrefix("-1712") {
+            fputs("Mail did not answer within \(sendTimeout)s — it may be waiting on a dialog.\n", stderr)
+        }
+        fputs("No compose window was left open; Mail keeps the unsent message in Drafts.\n", stderr)
+        exit(1)
     } else {
         fputs("Failed to compose message.\n", stderr)
         exit(1)
