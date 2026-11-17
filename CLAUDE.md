@@ -157,9 +157,18 @@ deleted a message whose subject did not start with `zz-` at all — Mail reporte
 the wrong subject for `item 1` and moved somebody's real mail to the Trash. It
 is the same trap as the note references in `findNoteScript`: the list is a
 query, it is re-evaluated under you, and an index into it can land anywhere.
-Never let a loop pick the message for you when it is going to be deleted. Match
-the message id, print what you are about to touch, and delete one named thing
-per pass.
+Never let a loop pick the message for you when it is going to be deleted.
+
+A message `id` is no better. Collecting ids first and deleting them one by one
+afterwards fails the same way: every delete shifts the ids, so the later
+lookups either raise "Ungültiger Index" or resolve to a different message.
+Deleting 13 test mails that way, one lookup handed back a real mail for a test
+mail's id — only a subject check in front of the `delete` kept it out of the
+Trash.
+
+What works: re-query after every single delete, take one hit, verify on that
+same object that it is the one you want, delete it, query again. Never collect
+first and delete later, and never delete what you have not just checked.
 
 ## messages-bridge: Reading chat.db
 
