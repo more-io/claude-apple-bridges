@@ -131,6 +131,27 @@ lists them and names their folder.
   you touch `sendMessage`: a send that fails has to fail fast and leave no window
   behind.
 
+## Mail: `whose` filters and delete
+
+A filtered list from Mail is not a set of stable references. Cleaning up test
+mail with
+
+```applescript
+repeat
+    set hits to (messages of mb whose subject starts with "zz-")
+    if (count of hits) is 0 then exit repeat
+    delete item 1 of hits
+end repeat
+```
+
+deleted a message whose subject did not start with `zz-` at all — Mail reported
+the wrong subject for `item 1` and moved somebody's real mail to the Trash. It
+is the same trap as the note references in `findNoteScript`: the list is a
+query, it is re-evaluated under you, and an index into it can land anywhere.
+Never let a loop pick the message for you when it is going to be deleted. Match
+the message id, print what you are about to touch, and delete one named thing
+per pass.
+
 ## messages-bridge: Reading chat.db
 
 `chat.db` is opened read-only (`?mode=ro`) and never written to. Two traps live in
