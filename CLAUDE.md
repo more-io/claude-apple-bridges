@@ -118,6 +118,15 @@ lists them and names their folder.
 
 - **Without `--force`**: opens Mail.app compose window — user reviews and sends manually
 - **With `--force`**: sends directly without UI (use only when explicitly requested)
+- **`--html-file` cannot produce a clean plain-text part.** Mail wraps assigned
+  HTML in `Apple-Mail-URLShareWrapperClass` + `<blockquote type="cite">`, so the
+  text alternative it derives arrives with `> ` on every line. The HTML part is
+  fine (the blockquote inherits its styling), and there is no way around it from
+  AppleScript: setting `content` after `html content` replaces the HTML inside
+  the wrapper, losing the HTML and keeping the quote. Verified by reading the
+  received message's `source` on macOS 27.2, Apple FB11734014. Do not "fix" this
+  by setting content as well — it makes the result strictly worse. The bridge
+  warns on stderr instead.
 - **Mail is not always listening.** With a dialog in front of it or a compose
   window it will not release, Mail stops answering Apple events, and
   NSAppleScript then waits for the Apple event default of two minutes. A caller

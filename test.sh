@@ -206,6 +206,9 @@ check        "send missing arg: exits 1"           1  "$MB" send
 # behind (--html-file on a directory makes Mail's `cat` fail after the message was
 # already created).
 check        "send that fails: exits 1"            1  "$MB" send "test@test.com" "Subject" --html-file "/tmp" --force
+# A flag standing where the body should be is not a body: this used to send a
+# message whose body was the word "--force".
+check        "send without a body: exits 1"         1  "$MB" send "test@test.com" "Subject" --force
 check        "delete missing arg: exits 1"         1  "$MB" delete
 check_contains "delete dry-run: no --force"       "Dry-run" "$MB" delete "1"
 check        "unknown command: exits 1"            1  "$MB" xyzzy

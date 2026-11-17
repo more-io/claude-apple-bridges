@@ -440,6 +440,21 @@ func sendMessage(to recipient: String, subject: String, body: String, attachment
         fputs("HTML file not found: \(htmlFilePath)\n", stderr)
         exit(1)
     }
+    // Mail does not hand the assigned HTML to the message as it is. It wraps it in
+    // `Apple-Mail-URLShareWrapperClass` and a `<blockquote type="cite">`, and the
+    // plain-text alternative it derives from that blockquote arrives with every
+    // line prefixed "> ". The HTML part itself is fine — the blockquote is styled
+    // to inherit, so an HTML client shows no quote — and AppleScript cannot set
+    // the text part (assigning `content` after `html content` replaces the HTML
+    // inside the wrapper instead of adding a text alternative). Measured on
+    // macOS 27.2, Apple's FB11734014. Nothing to fix here, so say it out loud
+    // rather than let a caller wonder why their mail looks quoted.
+    if !htmlFilePath.isEmpty {
+        fputs("Note: Mail wraps assigned HTML in its own quote block. HTML clients render it normally, but the plain-text alternative arrives with \"> \" in front of every line.\n", stderr)
+        if !body.isEmpty {
+            fputs("Note: --html-file supplies the body; the body argument is ignored.\n", stderr)
+        }
+    }
     let sender = fromEmail.isEmpty ? getDefaultSenderEmail() : fromEmail
     let senderProp = sender.isEmpty ? "" : ", sender:\"\(escapeForAppleScript(sender))\""
     let visibleProp = force ? "" : ", visible:true"
@@ -763,7 +778,17 @@ case "send":
         fputs("Usage: mail-bridge send <to> <subject> [body] [/path/to/attachment ...] [--from <email>] [--html-file <path>] [--force]\n", stderr)
         exit(1)
     }
-    let body = args.count >= 5 ? args[4] : ""
+    // args[4] is the body — unless the caller left it out and a flag landed in its
+    // place. `send <to> <subject> --html-file <path> --force` used to take
+    // "--html-file" for the body, and `send <to> <subject> --force` sent a message
+    // whose body was the word "--force".
+    let sendFlags: Set<String> = ["--force", "--from", "--html-file"]
+    let body = (args.count >= 5 && !sendFlags.contains(args[4])) ? args[4] : ""
+    guard !body.isEmpty || !htmlFilePath.isEmpty else {
+        fputs("Usage: mail-bridge send <to> <subject> <body> [/path/to/attachment ...] [--from <email>] [--html-file <path>] [--force]\n", stderr)
+        fputs("A body is required unless --html-file provides one.\n", stderr)
+        exit(1)
+    }
     let flagArgs = Set(["--force", "--from", fromEmail, "--html-file", htmlFilePath].filter { !$0.isEmpty })
     // Alle positionalen Args nach to/subject/body sind Attachment-Pfade
     // (mehrere möglich, z.B. `send to subj body f1.pdf f2.pdf f3.pdf --force`).

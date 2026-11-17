@@ -264,6 +264,19 @@ mail-bridge send heiko@web.de "Betreff" "Hallo Heiko, ..." --force
 mail-bridge send heiko@web.de "Report" "See attached." /tmp/report.pdf --from work@company.com --force
 ```
 
+**`--html-file` arrives quoted, and that is Mail, not the bridge.** Mail does not
+take assigned HTML as the message body. It wraps it in
+`Apple-Mail-URLShareWrapperClass` and a `<blockquote type="cite">`, and the
+plain-text alternative it derives from that blockquote arrives with `> ` in front
+of every line. The HTML part itself is intact and HTML clients show no quote —
+the blockquote is styled to inherit colour, padding and margin. AppleScript
+cannot set the text part: assigning `content` after `html content` replaces the
+HTML inside the wrapper instead of adding a text alternative, which costs the
+HTML and keeps the quoting. Measured on macOS 27.2 (Apple FB11734014). The
+bridge says so on stderr on every `--html-file` send rather than let it surprise
+anyone, and it tells you when a `<body>` argument is being ignored because
+`--html-file` supplies the body.
+
 **A send that fails, fails fast.** Mail stops answering Apple events while a
 dialog sits in front of it, and a script waiting on it would hang for the Apple
 event default of two minutes — long enough for an unattended caller to time out,
